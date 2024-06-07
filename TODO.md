@@ -1,0 +1,1 @@
+[] Previously there was a function called retrieveMartySystemInfo() on RICConnector - this is removed - it used to call RICSystem (now RaftSystemUtils).retrieve info and that used to ge to getHWElems() etc as the code to do that was in RICSystem. This now needs to be split out and getHWElems(), etc handled directly in the target library and not RaftJS
