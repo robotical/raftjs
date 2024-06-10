@@ -21,6 +21,7 @@ export { default as RaftStreamHandler } from './RaftStreamHandler';
 export { default as RaftSystemUtils } from './RaftSystemUtils';
 export { default as RaftUtils } from './RaftUtils';
 export * from './RaftTypes';
+export * from './RaftSystemType';
 export * from './RaftWifiTypes';
 export * from './RaftConnEvents';
 export * from './RaftUpdateEvents';
