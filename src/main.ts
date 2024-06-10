@@ -25,4 +25,4 @@ export * from './RaftSystemType';
 export * from './RaftWifiTypes';
 export * from './RaftConnEvents';
 export * from './RaftUpdateEvents';
-
+export * from "./RaftProtocolDefs";
