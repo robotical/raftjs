@@ -90,9 +90,6 @@ export default class RaftConnector {
     // Get system type callback
     this._getSystemTypeCB = getSystemTypeCB;
 
-    // Setup log level
-    RaftLog.setLogLevel(RaftLogLevel.INFO);
-
     // Debug
     RaftLog.debug('RaftConnector starting up');
   }
