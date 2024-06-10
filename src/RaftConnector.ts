@@ -18,7 +18,7 @@ import { RaftEventFn, RaftOKFail, RaftFileSendType, RaftFileDownloadResult, Raft
 import RaftSystemUtils from "./RaftSystemUtils";
 import RaftFileHandler from "./RaftFileHandler";
 import RaftStreamHandler from "./RaftStreamHandler";
-import RaftLog, { RaftLogLevel } from "./RaftLog";
+import RaftLog from "./RaftLog";
 import { RaftConnEvent, RaftConnEventNames } from "./RaftConnEvents";
 import { RaftGetSystemTypeCBType, RaftSystemType } from "./RaftSystemType";
 import { RaftUpdateEvent, RaftUpdateEventNames } from "./RaftUpdateEvents";

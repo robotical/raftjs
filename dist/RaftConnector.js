@@ -19,7 +19,7 @@ const RaftTypes_1 = require("./RaftTypes");
 const RaftSystemUtils_1 = tslib_1.__importDefault(require("./RaftSystemUtils"));
 const RaftFileHandler_1 = tslib_1.__importDefault(require("./RaftFileHandler"));
 const RaftStreamHandler_1 = tslib_1.__importDefault(require("./RaftStreamHandler"));
-const RaftLog_1 = tslib_1.__importStar(require("./RaftLog"));
+const RaftLog_1 = tslib_1.__importDefault(require("./RaftLog"));
 const RaftConnEvents_1 = require("./RaftConnEvents");
 const RaftUpdateEvents_1 = require("./RaftUpdateEvents");
 const RaftUpdateManager_1 = tslib_1.__importDefault(require("./RaftUpdateManager"));
@@ -64,8 +64,6 @@ class RaftConnector {
         this._raftUpdateManager = null;
         // Get system type callback
         this._getSystemTypeCB = getSystemTypeCB;
-        // Setup log level
-        RaftLog_1.default.setLogLevel(RaftLog_1.RaftLogLevel.INFO);
         // Debug
         RaftLog_1.default.debug('RaftConnector starting up');
     }
@@ -222,9 +220,8 @@ class RaftConnector {
             catch (err) {
                 RaftLog_1.default.error('RaftConnector.connect - error: ' + err);
             }
-            // Events
+            // Check ok
             if (connOk) {
-                this.onConnEvent(RaftConnEvents_1.RaftConnEvent.CONN_CONNECTED);
                 // Get system type
                 if (this._getSystemTypeCB) {
                     // Get system type
@@ -251,6 +248,8 @@ class RaftConnector {
                         RaftLog_1.default.warn(`connect subscribe for updates failed ${error}`);
                     }
                 }
+                // Send connected event
+                this.onConnEvent(RaftConnEvents_1.RaftConnEvent.CONN_CONNECTED);
             }
             else {
                 // Failed Event

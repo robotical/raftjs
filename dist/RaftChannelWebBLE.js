@@ -46,13 +46,12 @@ class RaftChannelWebBLE {
     setMsgHandler(raftMsgHandler) {
         this._raftMsgHandler = raftMsgHandler;
     }
-    // BLE interfaces are automatically subscribed to publish messages
     requiresSubscription() {
-        return false;
+        return true;
     }
     // RICREST command before disconnect
     ricRestCmdBeforeDisconnect() {
-        return "blereset";
+        return "blerestart";
     }
     // isEnabled
     isEnabled() {

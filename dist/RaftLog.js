@@ -54,7 +54,7 @@ class RaftLog {
             this._logListener(logLevel, msg);
             return true;
         }
-        return this._logLevel <= logLevel;
+        return this._logLevel < logLevel;
     }
 }
 RaftLog._logListener = null;

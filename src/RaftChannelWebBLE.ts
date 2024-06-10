@@ -60,14 +60,13 @@ export default class RaftChannelWebBLE implements RaftChannel {
     this._raftMsgHandler = raftMsgHandler;
   }
 
-  // BLE interfaces are automatically subscribed to publish messages
   requiresSubscription(): boolean {
-    return false;
+    return true;
   }
 
   // RICREST command before disconnect
   ricRestCmdBeforeDisconnect(): string | null {
-    return "blereset";
+    return "blerestart";
   }
 
   // isEnabled

@@ -1,6 +1,6 @@
 {
     "name": "@robdobsn/raftjs",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "description": "Javascript/TS library for Raft library",
     "main": "dist/main.js",
     "types": "dist/main.d.ts",
