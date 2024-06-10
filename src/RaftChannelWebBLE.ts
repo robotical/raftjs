@@ -123,7 +123,8 @@ export default class RaftChannelWebBLE implements RaftChannel {
         // Connect
         for (let connRetry = 0; connRetry < this._maxConnRetries; connRetry++) {
           // Connect
-          await RaftUtils.withTimeout(2000, this._bleDevice.gatt.connect());
+          const connTimeoutMs = _connectorOptions.connTimeoutMs || 5000;
+          await RaftUtils.withTimeout(connTimeoutMs, this._bleDevice.gatt.connect());
           RaftLog.debug(
             `RaftChannelWebBLE.connect - ${
               this._bleDevice.gatt.connected ? "OK" : "FAILED"
