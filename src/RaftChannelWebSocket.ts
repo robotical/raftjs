@@ -14,6 +14,7 @@ import RaftMsgHandler from "./RaftMsgHandler";
 import RaftLog from "./RaftLog";
 import RaftUtils from "./RaftUtils";
 import { RaftConnEvent, RaftConnEventFn } from "./RaftConnEvents";
+import { ConnectorOptions } from "./RaftSystemType";
 
 export default class RaftChannelWebSocket implements RaftChannel {
 
@@ -72,13 +73,16 @@ export default class RaftChannelWebSocket implements RaftChannel {
   }
 
   // Connect to a device
-  async connect(locator: string | object): Promise<boolean> {
+  async connect(locator: string | object, connectorOptions: ConnectorOptions): Promise<boolean> {
 
     // Debug
     RaftLog.debug("RaftChannelWebSocket.connect " + locator.toString());
 
+    // Get ws suffix
+    const wsSuffix = connectorOptions ? (connectorOptions.wsSuffix ? connectorOptions.wsSuffix : "ws") : "ws";
+
     // Connect
-    const connOk = await this._wsConnect("ws://" + locator + "/ws");
+    const connOk = await this._wsConnect("ws://" + locator + "/" + wsSuffix);
     return connOk;
   }
 

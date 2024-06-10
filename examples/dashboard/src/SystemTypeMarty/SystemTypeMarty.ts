@@ -11,6 +11,7 @@ export default class SystemTypeMarty implements RaftSystemType {
   defaultWiFiHostname = "Marty";
   firmwareDestName = "ricfw";
   normalFileDestName = "fs";
+  connectorOptions = {wsSuffix: "ws"};
 
   // LED Pattern checker
   private _ledPatternChecker: RICLEDPatternChecker = new RICLEDPatternChecker();

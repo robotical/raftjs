@@ -10,11 +10,11 @@ export default class ConnManager {
   // Connector
   private _connector = new RaftConnector(async (systemUtils: RaftSystemUtils) => {
     const systemInfo = await systemUtils.getSystemInfo();
-    if (systemInfo.SystemName === "Marty") {
+    if (systemInfo.SystemName === "RIC") {
       RaftLog.info("ConnManager - Marty detected");
       return new SystemTypeMarty();
-    } else if (systemInfo.SystemName === "RoboticalCog") {
-      RaftLog.info("ConnManager - Puck detected");
+    } else if (systemInfo.SystemName === "Cog") {
+      RaftLog.info("ConnManager - Cog detected");
       return new SystemTypeCog();
     }
     RaftLog.error(`ConnManager - unknown system ${systemInfo.SystemName} ${JSON.stringify(systemInfo)}`);
@@ -71,6 +71,7 @@ export default class ConnManager {
         this._onConnectionEvent(evtType, eventEnum, eventName, eventData);
       }
     });
+    // Set the connector websocket suffix
     if (method === "WebBLE") {
       const dev = await this.getBleDevice();
       return this._connector.connect(method, dev as object);

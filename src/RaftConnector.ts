@@ -661,7 +661,7 @@ export default class RaftConnector {
     // Connect
     try {
       if (this._raftChannel) {
-        const connected = await this._raftChannel.connect(this._channelConnLocator);
+        const connected = await this._raftChannel.connect(this._channelConnLocator, this._systemType ? this._systemType.connectorOptions : {});
         if (connected) {
           this._retryIfLostIsConnected = true;
           return true;

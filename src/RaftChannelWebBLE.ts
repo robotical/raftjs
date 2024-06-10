@@ -12,6 +12,7 @@ import RaftChannel from "./RaftChannel";
 import { RaftConnEvent, RaftConnEventFn } from "./RaftConnEvents";
 import RaftLog from "./RaftLog";
 import RaftMsgHandler from "./RaftMsgHandler";
+import { ConnectorOptions } from "./RaftSystemType";
 import RaftUtils from "./RaftUtils";
 
 export default class RaftChannelWebBLE implements RaftChannel {
@@ -115,7 +116,7 @@ export default class RaftChannelWebBLE implements RaftChannel {
   }
 
   // Connect to a device
-  async connect(locator: string | object): Promise<boolean> {
+  async connect(locator: string | object, _connectorOptions: ConnectorOptions): Promise<boolean> {
     // RaftLog.debug(`Selected device: ${deviceID}`);
     this._bleDevice = locator as BluetoothDevice;
     if (this._bleDevice && this._bleDevice.gatt) {

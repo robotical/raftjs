@@ -10,11 +10,12 @@
 
 import { RaftConnEventFn } from "./RaftConnEvents";
 import RaftMsgHandler from "./RaftMsgHandler";
+import { ConnectorOptions } from "./RaftSystemType";
 
 export default interface RaftChannel
 {
     isConnected(): boolean;
-    connect(locator: string | object): Promise<boolean>;
+    connect(locator: string | object, connectorOptions: ConnectorOptions): Promise<boolean>;
     disconnect(): Promise<void>;
     getConnectedLocator(): string | object;
     setOnConnEvent(connEventFn: RaftConnEventFn): void;
