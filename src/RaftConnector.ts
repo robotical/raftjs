@@ -271,9 +271,8 @@ export default class RaftConnector {
         RaftLog.error('RaftConnector.connect - error: ' + err);
       }
 
-      // Events
+      // Check ok
       if (connOk) {
-        this.onConnEvent(RaftConnEvent.CONN_CONNECTED);
 
         // Get system type
         if (this._getSystemTypeCB) {
@@ -303,6 +302,9 @@ export default class RaftConnector {
             RaftLog.warn(`connect subscribe for updates failed ${error}`)
           }
         }
+
+        // Send connected event
+        this.onConnEvent(RaftConnEvent.CONN_CONNECTED);
 
       } else {
         // Failed Event
