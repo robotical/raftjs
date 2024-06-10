@@ -98,7 +98,8 @@ class RaftChannelWebBLE {
                 // Connect
                 for (let connRetry = 0; connRetry < this._maxConnRetries; connRetry++) {
                     // Connect
-                    await RaftUtils_1.default.withTimeout(2000, this._bleDevice.gatt.connect());
+                    const connTimeoutMs = _connectorOptions.connTimeoutMs || 5000;
+                    await RaftUtils_1.default.withTimeout(connTimeoutMs, this._bleDevice.gatt.connect());
                     RaftLog_1.default.debug(`RaftChannelWebBLE.connect - ${this._bleDevice.gatt.connected ? "OK" : "FAILED"} attempt ${connRetry + 1} connection to device ${this._bleDevice.name}`);
                     if (this._bleDevice.gatt.connected) {
                         // Delay a bit

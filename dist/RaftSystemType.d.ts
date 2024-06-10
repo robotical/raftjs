@@ -5,6 +5,7 @@ export type RaftStateIsInvalidCBType = () => void;
 export type RaftRxOtherMsgType = (payload: Uint8Array, _frameTimeMs: number) => void;
 export interface ConnectorOptions {
     wsSuffix?: string;
+    connTimeoutMs?: number;
 }
 export interface RaftSystemType {
     nameForDialogs: string;
