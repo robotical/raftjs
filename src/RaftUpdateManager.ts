@@ -644,7 +644,7 @@ export default class RICUpdateManager {
       localName: this._nameToConnectTo,
       id: this._idToConnectTo || "",
       rssi: 0,
-    });
+    }, {});
   }
 
   async waitForRestart(
