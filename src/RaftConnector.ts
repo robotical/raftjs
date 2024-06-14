@@ -329,7 +329,7 @@ export default class RaftConnector {
       }
       // await this.sendRICRESTMsg("bledisc", {});
       await this._raftChannel.disconnect();
-
+      this._raftChannel = null;
     }
   }
 
