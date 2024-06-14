@@ -1,0 +1,38 @@
+import RaftMsgHandler from './RaftMsgHandler';
+import RaftCommsStats from './RaftCommsStats';
+import RaftConnector from './RaftConnector';
+export default class RaftStreamHandler {
+    private _streamID;
+    DEFAULT_MAX_BLOCK_SIZE: number;
+    private _maxBlockSize;
+    private _msgHandler;
+    private _commsStats;
+    private _raftConnector;
+    private _soktoReceived;
+    private _soktoPos;
+    private _streamIsStarting;
+    private _lastStreamStartTime;
+    private _isStreaming;
+    private _isPaused;
+    private _streamBuffer;
+    private _audioDuration;
+    private _audioByteRate;
+    private _streamPos;
+    private _numBlocksWithoutPause;
+    private _legacySoktoMode;
+    private soundFinishPoint;
+    constructor(msgHandler: RaftMsgHandler, commsStats: RaftCommsStats, raftConnector: RaftConnector);
+    setNumBlocksWithoutPause(numBlocks: number): void;
+    setLegacySoktoMode(legacyMode: boolean): void;
+    streamAudio(streamContents: Uint8Array, clearExisting: boolean, audioDuration: number): void;
+    streamCancel(): Promise<void>;
+    isStreamStarting(): boolean;
+    clearFinishPointTimeout(): void;
+    streamingPerformanceChecker(): void;
+    private _sendStreamStartMsg;
+    get maxBlockSize(): number;
+    set maxBlockSize(maxBlockSize: number);
+    private _sendStreamEndMsg;
+    private _sendStreamBuffer;
+    onSoktoMsg(soktoPos: number): void;
+}
