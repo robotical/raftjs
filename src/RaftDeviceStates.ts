@@ -70,7 +70,7 @@ export interface DeviceTimeline {
 }
     
 export interface DeviceState {
-    deviceTypeInfo: DeviceTypeInfo;
+    deviceTypeInfo: DeviceTypeInfo | undefined;
     deviceTimeline: DeviceTimeline;
     deviceAttributes: DeviceAttributesState;
     deviceIsNew: boolean;

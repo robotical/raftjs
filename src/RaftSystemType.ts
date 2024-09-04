@@ -8,6 +8,7 @@ export type RaftRxOtherMsgType = (payload: Uint8Array, _frameTimeMs: number) => 
 export interface ConnectorOptions {
   wsSuffix?: string;
   connTimeoutMs?: number;
+  bleConnItvlMs?: number;
 }
 
 export interface RaftSystemType {

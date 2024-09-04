@@ -28,6 +28,7 @@
     "util": "^0.12.5"
   },
   "dependencies": {
+    "python-struct": "^1.1.3",
     "react": "^18.2.0",
     "react-color": "^2.19.3",
     "react-dom": "^18.2.0"
