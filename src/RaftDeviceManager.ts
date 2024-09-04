@@ -14,8 +14,9 @@ import { DeviceTypeInfo, DeviceTypeAction, DeviceTypeInfoRecs, RaftDevTypeInfoRe
 import struct, { DataType } from 'python-struct';
 import AttributeHandler from "./RaftAttributeHandler";
 import RaftSystemUtils from "./RaftSystemUtils";
+import RaftDeviceMgrIF from "./RaftDeviceMgrIF";
 
-export class DeviceManager {
+export class DeviceManager implements RaftDeviceMgrIF{
 
     // Singleton
     // private static _instance: DeviceManager;

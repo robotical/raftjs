@@ -86,4 +86,3 @@ export class DevicesState {
 export function getDeviceKey(busName: string, devAddr: string): string {
     return `${busName}_${devAddr}`;
 }
-

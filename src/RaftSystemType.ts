@@ -1,3 +1,4 @@
+import RaftDeviceMgrIF from "./RaftDeviceMgrIF";
 import RaftSystemUtils from "./RaftSystemUtils";
 import { RaftEventFn } from "./RaftTypes";
 
@@ -21,6 +22,7 @@ export interface RaftSystemType {
   subscribeForUpdates: RaftSubscribeForUpdatesCBType | null;
   stateIsInvalid: RaftStateIsInvalidCBType | null;
   rxOtherMsgType: RaftRxOtherMsgType | null;
+  deviceMgrIF: RaftDeviceMgrIF;
 }
 
 export type RaftGetSystemTypeCBType = (systemUtils: RaftSystemUtils) => Promise<RaftSystemType | null>;

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import './styles.css';
 import ConnManager from './ConnManager';
 import { RaftConnEvent, RaftUpdateEvent, RaftPublishEvent } from "../../../src/main";
-import StatusScreen from './StatusScreen';
+import StatusPanel from './StatusPanel';
+import DevicesPanel from './DevicesPanel';
 
 const connManager = ConnManager.getInstance();
 
@@ -41,6 +42,7 @@ export default function Main() {
         {/* Div optionally shown if connected */}
         {connectionStatus === RaftConnEvent.CONN_CONNECTED ?
           <>
+          <div className="connected-panel">
           <div className="info-boxes">
             <div className="info-box">
               <div className="conn-indication">
@@ -51,7 +53,9 @@ export default function Main() {
               </div>
             </div>
           </div>
-          <StatusScreen />
+          <StatusPanel />
+          </div>
+          <DevicesPanel />
           </>
           :
           <>

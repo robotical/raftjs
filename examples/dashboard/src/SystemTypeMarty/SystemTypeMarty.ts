@@ -109,5 +109,8 @@ export default class SystemTypeMarty implements RaftSystemType {
         });
     }
   }
+
+  // Device manager interface
+  deviceMgrIF = this._ricStateInfo;
 }
 

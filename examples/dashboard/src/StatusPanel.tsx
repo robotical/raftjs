@@ -1,29 +1,28 @@
-import ConnManager from "./ConnManager";
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import './styles.css';
 import { RaftSystemInfo } from "../../../src/main";
+import ConnManager from "./ConnManager";
 
 const connManager = ConnManager.getInstance();
 
-export default function StatusScreen() {
+export default function StatusPanel() {
   const [systemInfo, setSystemInfo] = useState<RaftSystemInfo>(new RaftSystemInfo());
 
+  // Use useEffect to fetch system info when the component mounts
+  useEffect(() => {
+    if (connManager.isConnected()) {
+      connManager.getConnector().getRaftSystemUtils().getSystemInfo().then((sysInfo: RaftSystemInfo) => {
+        console.log(`System Info: ${JSON.stringify(sysInfo)}`);
+        setSystemInfo(sysInfo);
+      });
+    }
+  }, []); // Empty dependency == on component mount
+  
   return (
     <div className="info-boxes">
 
       <div className="info-box">
         <h3>SysInfo</h3>
-        <button className="action-button" onClick={() => {
-          if (connManager.isConnected()) {
-            connManager.getConnector().getRaftSystemUtils().getSystemInfo().then((sysInfo:RaftSystemInfo) => {
-              console.log(`System Info: ${JSON.stringify(sysInfo)}`);
-              setSystemInfo(sysInfo);
-            });
-          }
-        }
-        }>
-          Get
-        </button>
         {
           (systemInfo !== undefined) && (systemInfo.validMs) && (systemInfo.validMs > 0) ?
             <div className="info">

@@ -77,6 +77,8 @@ export default class SystemTypeCog implements RaftSystemType {
             frameTimeMs: frameTimeMs
           });
       }
-
     };
+
+    // Get device manager
+    deviceMgrIF = this._deviceManager;
   }
