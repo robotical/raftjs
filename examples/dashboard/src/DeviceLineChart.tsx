@@ -71,7 +71,7 @@ const DeviceLineChart: React.FC<DeviceLineChartProps> = memo(({ deviceKey, lastU
     useEffect(() => {
         if (!deviceState)
             return;
-        const maxChartDataPoints = 100;
+        const maxChartDataPoints = 50;
         const labels = deviceState.deviceTimeline.timestampsUs.slice(maxChartDataPoints).map(time => {
             const seconds = time / 1e6; // Convert microseconds to seconds
             const secondsStr = seconds.toFixed(3); // Format decimal places
