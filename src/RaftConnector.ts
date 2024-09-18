@@ -217,6 +217,7 @@ export default class RaftConnector {
     try {
       await this.disconnect();
     } catch (err) {
+      RaftLog.error('RaftConnector.connect - error: ' + err);
       // Ignore
     }
 

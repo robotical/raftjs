@@ -451,6 +451,7 @@ export default class RaftUtils {
       return semverGt(v1, v2);
     } catch (e) {
       // one of the two versions is invalid, return true
+      RaftLog.error(`isVersionGreater - invalid version ${v1} or ${v2} ${e}`);
       return true;
     }
   }
@@ -460,6 +461,7 @@ export default class RaftUtils {
       return semverEq(v1, v2);
     } catch (e) {
       // one of the two versions is invalid, return false
+      RaftLog.error(`isVersionEqual - invalid version ${v1} or ${v2} ${e}`);
       return false;
     }
   }

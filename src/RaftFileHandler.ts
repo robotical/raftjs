@@ -209,6 +209,7 @@ export default class RaftFileHandler {
       await this.awaitOutstandingMsgPromises(true);
     } catch (err) {
       // Ignore
+      RaftLog.error(`sendFileEndMsg awaitOutstandingMsgPromises error ${err}`);
     }
 
     // Send

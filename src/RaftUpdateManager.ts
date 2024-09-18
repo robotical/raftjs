@@ -94,7 +94,7 @@ export default class RICUpdateManager {
       const response = await axios.get(updateURL);
       this._latestVersionInfo = response.data;
     } catch (error) {
-      RaftLog.debug("checkForUpdate failed to get latest from internet");
+      RaftLog.debug(`Failed to get latest version from internet ${error}`);
     }
     if (this._latestVersionInfo === null) {
       return RaftUpdateEvent.UPDATE_CANT_REACH_SERVER;
@@ -127,7 +127,7 @@ export default class RICUpdateManager {
         return RaftUpdateEvent.UPDATE_NOT_AVAILABLE;
       }
     } catch (error) {
-      RaftLog.debug("Failed to get latest version from internet");
+      RaftLog.debug(`checkForUpdate failed ${error}`);
     }
     return RaftUpdateEvent.UPDATE_CANT_REACH_SERVER;
   }
@@ -175,7 +175,7 @@ export default class RICUpdateManager {
         }
       } catch (error) {
         RaftLog.debug(
-          "isUpdateRequired failed to get hw-elem firmware update status"
+          `isUpdateRequired - failed to get hw-elem firmware update status ${error}`
         );
       }
     } else {
@@ -598,7 +598,7 @@ export default class RICUpdateManager {
       await this._msgHandler.sendRICRESTURL<RaftOKFail>(updateCmd);
     } catch (error) {
       RaftLog.debug(
-        `fwUpdate failed to start hw-elem firmware update cmd ${updateCmd}`
+        `fwUpdate failed to start hw-elem firmware update cmd ${updateCmd} error ${error}`
       );
       return false;
     }
@@ -632,7 +632,7 @@ export default class RICUpdateManager {
           break;
         }
       } catch (error) {
-        RaftLog.debug(`failed to get hw-elem firmware update status`);
+        RaftLog.debug(`failed to get hw-elem firmware update status ${error}`);
       }
     }
     return allElemsUpdatedOk;

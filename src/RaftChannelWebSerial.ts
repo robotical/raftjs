@@ -135,7 +135,7 @@ export default class RaftChannelWebSerial implements RaftChannel {
 
   // Connect to a device
   async connect(locator: string | object, _connectorOptions: ConnectorOptions): Promise<boolean> {
-
+    console.log("_connectorOptions", _connectorOptions);
     // Debug
     RaftLog.debug("RaftChannelWebSerial.connect " + locator.toString());
 

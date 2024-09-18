@@ -188,6 +188,7 @@ export default class RaftSystemUtils {
       }
       return true;
     } catch (error) {
+      RaftLog.debug(`RaftSystemUtils setRaftName Failed to set name ${error}`);
       this._friendlyName = null;
       return false;
     }
@@ -227,6 +228,7 @@ export default class RaftSystemUtils {
       );
       return this._friendlyName;
     } catch (error) {
+      RaftLog.debug(`RaftSystemUtils getRaftName Failed to get name ${error}`);
       return new RaftFriendlyName();
     }
   }
@@ -430,7 +432,7 @@ export default class RaftSystemUtils {
       this.getWiFiConnStatus();
       return true;
     } catch (error) {
-      RaftLog.debug(`RaftSystemUtils wifiDisconnect clearing unsuccessful`);
+      RaftLog.debug(`RaftSystemUtils wifiDisconnect clearing unsuccessful ${error}`);
     }
     return false;
   }
@@ -449,7 +451,7 @@ export default class RaftSystemUtils {
       await this._msgHandler.sendRICRESTURL<RaftOKFail>("wifiscan/start");
       return true;
     } catch (error) {
-      RaftLog.debug(`RaftSystemUtils wifiScanStart unsuccessful`);
+      RaftLog.debug(`RaftSystemUtils wifiScanStart unsuccessful ${error}`);
     }
     return false;
   }
@@ -466,7 +468,7 @@ export default class RaftSystemUtils {
         "wifiscan/results"
       );
     } catch (error) {
-      RaftLog.debug(`RaftSystemUtils wifiScanResults unsuccessful`);
+      RaftLog.debug(`RaftSystemUtils wifiScanResults unsuccessful ${error}`);
     }
     return false;
   }
