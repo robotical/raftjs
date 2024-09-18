@@ -1,0 +1,37 @@
+import { DeviceAttributeState, DevicesState, DeviceState } from "./RaftDeviceStates";
+import { DeviceTypeAction } from "./RaftDeviceInfo";
+import { DataType } from 'python-struct';
+export declare class DeviceManager {
+    private static _instance;
+    private _maxDatapointsToStore;
+    private _attributeHandler;
+    private _serverAddressPrefix;
+    private _urlPrefix;
+    private _devicesState;
+    private _callbackNewDevice;
+    private _callbackNewDeviceAttribute;
+    private _callbackNewAttributeData;
+    private _lastStateUpdate;
+    private MAX_TIME_BETWEEN_STATE_UPDATES_MS;
+    private _websocket;
+    static getInstance(): DeviceManager;
+    getDevicesState(): DevicesState;
+    getDeviceState(deviceKey: string): DeviceState;
+    private _cachedDeviceTypeRecs;
+    private _testDeviceTypeRecs;
+    private _testDataGen;
+    private constructor();
+    sendCommand(cmd: string): Promise<boolean>;
+    init(): Promise<boolean>;
+    private connectWebSocket;
+    onNewDevice(callback: (deviceKey: string, state: DeviceState) => void): void;
+    onNewDeviceAttribute(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void;
+    onNewAttributeData(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void;
+    setFriendlyName(friendlyName: string): Promise<void>;
+    private handleClientMsgJson;
+    private processStateCallback;
+    private getDeviceTypeInfo;
+    sendAction(deviceKey: string, action: DeviceTypeAction, data: DataType[]): void;
+    sendCompoundAction(deviceKey: string, action: DeviceTypeAction, data: DataType[][]): void;
+    private hexToBytes;
+}
