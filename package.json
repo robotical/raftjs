@@ -1,6 +1,6 @@
 {
     "name": "@robdobsn/raftjs",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "description": "Javascript/TS library for Raft library",
     "main": "dist/main.js",
     "types": "dist/main.d.ts",
@@ -15,7 +15,7 @@
     "license": "MIT",
     "keywords": [
         "Raft"
-    ], 
+    ],
     "publishConfig": {
         "registry": "https://registry.npmjs.org/",
         "access": "public"
@@ -24,14 +24,14 @@
         "build": "tsc -p tsconfig.json",
         "build-all": "npm run clean && npm run build",
         "test": "jest",
-        "lint": "eslint ./src", 
+        "lint": "eslint ./src",
         "clean": "rm -rf dist build package",
         "docs": "typedoc --entryPoints src/main.ts"
     },
     "devDependencies": {
         "@types/jest": "^29.5.12",
         "@types/node": "^20.14.0",
-        "@types/python-struct": "^1.0.4",        
+        "@types/python-struct": "^1.0.4",
         "@types/semver": "^7.5.8",
         "@types/web-bluetooth": "^0.0.20",
         "@typescript-eslint/eslint-plugin": "^8.6.0",
