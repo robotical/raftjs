@@ -24,7 +24,7 @@
         "build": "tsc -p tsconfig.json",
         "build-all": "npm run clean && npm run build",
         "test": "jest",
-        "lint": "eslint ./src",
+        "lint": "eslint ./src", 
         "clean": "rm -rf dist build package",
         "docs": "typedoc --entryPoints src/main.ts"
     },
