@@ -15,7 +15,7 @@
     "license": "MIT",
     "keywords": [
         "Raft"
-    ],
+    ], 
     "publishConfig": {
         "registry": "https://registry.npmjs.org/",
         "access": "public"
