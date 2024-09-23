@@ -23,6 +23,7 @@ import { RaftConnEvent, RaftConnEventNames } from "./RaftConnEvents";
 import { RaftGetSystemTypeCBType, RaftSystemType } from "./RaftSystemType";
 import { RaftUpdateEvent, RaftUpdateEventNames } from "./RaftUpdateEvents";
 import RaftUpdateManager from "./RaftUpdateManager";
+import RaftChannelPhoneBLE from "./RaftChannelPhoneBLE";
 
 export default class RaftConnector {
 
@@ -237,6 +238,9 @@ export default class RaftConnector {
     } else if (((method === 'WebSerial'))) {
       this._raftChannel = new RaftChannelWebSerial();
       connMethod = 'WebSerial';
+    } else if (method === 'PhoneBLE') {
+      this._raftChannel = new RaftChannelPhoneBLE();
+      connMethod = 'PhoneBLE';
     }
 
     RaftLog.debug(`connecting with connMethod ${connMethod}`);
