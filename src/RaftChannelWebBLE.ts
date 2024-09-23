@@ -66,7 +66,10 @@ export default class RaftChannelWebBLE implements RaftChannel {
 
   // RICREST command before disconnect
   ricRestCmdBeforeDisconnect(): string | null {
-    return "blerestart";
+    // NT: Sending blerestart *before* disconnecting results in timeout issues as the device is no longer connected when we try to actually disconnect
+    // suggested fix: allow callaback command to be sent after disconnect on the fw side 
+    // return "blerestart";
+    return null;
   }
 
   // isEnabled
