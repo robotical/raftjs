@@ -2,7 +2,7 @@
 
 /* General styling for the dark theme */
 body,
-.device-screen,
+.device-panel,
 .device-block-heading,
 .device-attrs-and-actions,
 .device-attrs-form,
@@ -77,6 +77,12 @@ h1 {
     gap: 10px;
 }
 
+.connected-panel {
+    display: flex;
+    justify-content: flex-start;
+    gap: 20px; /* Space between the Connected panel and StatusPanel */
+}
+
 .info-box {
     display: flex;
     flex-direction: column;
@@ -109,7 +115,6 @@ h1 {
 .info-line {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 10px;
 }
 
 .info-label {
@@ -120,3 +125,141 @@ h1 {
 .info-value {
     font-weight: normal;
 }
+
+/* Style for the overall container that holds all devices */
+.devices-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;  /* Adds space between each DeviceScreen */
+}
+
+/* Style for each individual device screen */
+.device-panel {
+    display: flex;
+    flex-direction: column; /* Stack heading and data blocks vertically */
+    gap: 10px;  /* Adds space between the heading and the data block */
+    padding: 10px;
+    border: 1px solid #666; /* Adjusting border color for dark theme */
+    border-radius: 8px;
+}
+
+.device-panel.offline {
+    opacity: 0.5; /* Reduces the opacity to 50% */
+    background-color: rgba(50, 50, 50, 0.8); /* Optional: Adds a grey tint */
+    pointer-events: none; /* Disables interactions with all child elements */
+}
+
+/* Style for the device heading */
+.device-block-heading {
+    display: flex;
+    padding: 5px 10px; /* Padding inside the heading block */
+    background: #444; /* Slightly lighter dark background for distinction */
+    border-radius: 4px; /* Slight rounding of corners */
+}
+
+/* Style for the text inside the heading */
+.device-block-heading-text {
+    font-weight: bold; /* Keep heading text bold */
+}
+
+/* Style for the data block containing the form and chart */
+.device-block-data {
+    display: flex;
+    gap: 20px;  /* Space between the form and the chart */
+    align-items: flex-start;  /* Align items at their top edge */
+    min-height: 10rem;  /* Minimum height to ensure sufficient visibility */    
+}
+
+.device-attrs-and-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;  /* Space between the form and the actions */
+}
+
+
+/* Styles for the form and chart to adjust space */
+.device-attrs-form {
+    flex: 0 1 auto;  /* Don't grow, but allow shrinking */
+    width: auto;  /* Adjust based on content or set a max-width */
+    min-width: 200px;  /* Ensure it doesn't shrink too much */
+    padding: 10px;
+    border: 1px solid #666; /* Adjusting border color for dark theme */
+    border-radius: 4px;
+    background: #444; /* Slightly lighter dark background for distinction */    
+}
+
+.device-actions-form {
+    flex: 0 1 auto;  /* Don't grow, but allow shrinking */
+    width: auto;  /* Adjust based on content or set a max-width */
+    min-width: 200px;  /* Ensure it doesn't shrink too much */
+    padding: 10px;
+    border: 1px solid #666; /* Adjusting border color for dark theme */
+    border-radius: 4px;
+    background: #444; /* Slightly lighter dark background for distinction */
+}
+
+.device-line-chart {
+    flex: 1 1 auto;
+    min-width: 50%;
+    padding: 10px;
+    border: 1px solid #666; /* Adjusting border color for dark theme */
+    border-radius: 4px;
+    min-height: 15rem;  /* Setting a minimum height to ensure the chart is clearly visible */
+    height: 25vh; /* Chart is approximately 1/4 of the viewport height in landscape */
+}
+
+.menu-icon,
+.header-menu-icon {
+    cursor: pointer;
+    font-size: 1.5rem;
+    margin-left: auto;
+    margin-right: 10px;
+    color: #fff;
+}
+
+.dropdown-menu {
+    position: absolute;
+    right: 70px;
+    background-color: #444;
+    border: 1px solid #666;
+    border-radius: 4px;
+    padding: 5px;
+    z-index: 10;
+}
+
+.menu-item {
+    padding: 10px;
+    cursor: pointer;
+    color: #fff;
+}
+
+.menu-item:hover {
+    background-color: #555;
+}
+
+/* Adjust height for portrait orientation */
+@media (orientation: portrait) {
+    .device-line-chart {
+        height: 16.67vh;
+        /* Chart is approximately 1/6 of the viewport height in portrait */
+    }
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 600px) {
+
+    .device-line-chart,
+    .device-attrs-form {
+        height: 25vh;
+        /* Adjust height to a suitable value on small screens */
+    }
+}
+
+/* Considerations for very large screens or high aspect ratios */
+@media (min-width: 1200px) {
+    .device-line-chart {
+        height: 20vh;
+        /* Slightly reduce the height for very wide screens */
+    }
+}
+
