@@ -1,5 +1,6 @@
 import { time } from "console";
 import RaftLog from "../../../../src/RaftLog";
+import { TextDecoder } from 'text-encoding';
 
 export interface IMUStateInfo {
     gx: number;
@@ -49,7 +50,13 @@ export class CogStateInfo {
         // RaftLog.info(`CogStateInfo: updateFromMsg: jsonString: ${jsonString}`);
 
         // Parse JSON string to TypeScript object
-        const deviceMsg: DeviceMsgJson = JSON.parse(jsonString);
+        let deviceMsg: DeviceMsgJson;
+        try {
+            deviceMsg = JSON.parse(jsonString);
+        } catch (error) {
+            RaftLog.warn(`CogStateInfo: updateFromMsg: JSON parse error: ${error}`);
+            return [];
+        }
 
         // Debug
         // for (const busName in deviceMsg) {

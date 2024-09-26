@@ -1,4 +1,4 @@
-import { RaftChannelWebBLE, RaftConnector, RaftEventFn, RaftLog, RaftSystemUtils } from "../../../src/main";
+import { RaftChannelBLE, RaftConnector, RaftEventFn, RaftLog, RaftSystemUtils } from "../../../src/main";
 import SystemTypeCog from "./SystemTypeCog/SystemTypeCog";
 import SystemTypeMarty from "./SystemTypeMarty/SystemTypeMarty";
 
@@ -50,7 +50,7 @@ export default class ConnManager {
     try {
       const dev = await navigator.bluetooth.requestDevice({
         filters: [
-          { services: [RaftChannelWebBLE.ServiceUUID] }
+          { services: [RaftChannelBLE.ServiceUUID] }
         ],
         optionalServices: []
       });
