@@ -41,7 +41,8 @@ h1 {
 }
 
 .always-enabled {
-    pointer-events: auto !important; /* Ensures interactions are always enabled */
+    pointer-events: auto !important;
+    /* Ensures interactions are always enabled */
 }
 
 .content-body {
@@ -80,7 +81,10 @@ h1 {
 .connected-panel {
     display: flex;
     justify-content: flex-start;
-    gap: 20px; /* Space between the Connected panel and StatusPanel */
+    gap: 20px;
+    align-items: stretch;
+    flex-direction: row;
+    /* Space between the Connected panel and StatusPanel */
 }
 
 .info-box {
@@ -97,13 +101,26 @@ h1 {
     margin-bottom: 10px;
 }
 
-.status-screen {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    border-radius: 10px;
+.command-input {
+    width: 80%;
+    padding: 10px;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.send-command-button {
     padding: 10px 20px;
-    border: 1px solid #666;
+    border: none;
+    border-radius: 4px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+}
+
+.send-command-button:hover {
+    background-color: #0056b3;
 }
 
 .info {
@@ -126,86 +143,120 @@ h1 {
     font-weight: normal;
 }
 
+.info-column {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 /* Style for the overall container that holds all devices */
 .devices-container {
     display: flex;
     flex-direction: column;
-    gap: 10px;  /* Adds space between each DeviceScreen */
+    gap: 10px;
+    /* Adds space between each DeviceScreen */
 }
 
 /* Style for each individual device screen */
 .device-panel {
     display: flex;
-    flex-direction: column; /* Stack heading and data blocks vertically */
-    gap: 10px;  /* Adds space between the heading and the data block */
+    flex-direction: column;
+    /* Stack heading and data blocks vertically */
+    gap: 10px;
+    /* Adds space between the heading and the data block */
     padding: 10px;
-    border: 1px solid #666; /* Adjusting border color for dark theme */
+    border: 1px solid #666;
+    /* Adjusting border color for dark theme */
     border-radius: 8px;
 }
 
 .device-panel.offline {
-    opacity: 0.5; /* Reduces the opacity to 50% */
-    background-color: rgba(50, 50, 50, 0.8); /* Optional: Adds a grey tint */
-    pointer-events: none; /* Disables interactions with all child elements */
+    opacity: 0.5;
+    /* Reduces the opacity to 50% */
+    background-color: rgba(50, 50, 50, 0.8);
+    /* Optional: Adds a grey tint */
+    pointer-events: none;
+    /* Disables interactions with all child elements */
 }
 
 /* Style for the device heading */
 .device-block-heading {
     display: flex;
-    padding: 5px 10px; /* Padding inside the heading block */
-    background: #444; /* Slightly lighter dark background for distinction */
-    border-radius: 4px; /* Slight rounding of corners */
+    padding: 5px 10px;
+    /* Padding inside the heading block */
+    background: #444;
+    /* Slightly lighter dark background for distinction */
+    border-radius: 4px;
+    /* Slight rounding of corners */
 }
 
 /* Style for the text inside the heading */
 .device-block-heading-text {
-    font-weight: bold; /* Keep heading text bold */
+    font-weight: bold;
+    /* Keep heading text bold */
 }
 
 /* Style for the data block containing the form and chart */
 .device-block-data {
     display: flex;
-    gap: 20px;  /* Space between the form and the chart */
-    align-items: flex-start;  /* Align items at their top edge */
-    min-height: 10rem;  /* Minimum height to ensure sufficient visibility */    
+    gap: 20px;
+    /* Space between the form and the chart */
+    align-items: flex-start;
+    /* Align items at their top edge */
+    min-height: 10rem;
+    /* Minimum height to ensure sufficient visibility */
 }
 
 .device-attrs-and-actions {
     display: flex;
     flex-direction: column;
-    gap: 10px;  /* Space between the form and the actions */
+    gap: 10px;
+    /* Space between the form and the actions */
 }
 
 
 /* Styles for the form and chart to adjust space */
 .device-attrs-form {
-    flex: 0 1 auto;  /* Don't grow, but allow shrinking */
-    width: auto;  /* Adjust based on content or set a max-width */
-    min-width: 200px;  /* Ensure it doesn't shrink too much */
+    flex: 0 1 auto;
+    /* Don't grow, but allow shrinking */
+    width: auto;
+    /* Adjust based on content or set a max-width */
+    min-width: 200px;
+    /* Ensure it doesn't shrink too much */
     padding: 10px;
-    border: 1px solid #666; /* Adjusting border color for dark theme */
+    border: 1px solid #666;
+    /* Adjusting border color for dark theme */
     border-radius: 4px;
-    background: #444; /* Slightly lighter dark background for distinction */    
+    background: #444;
+    /* Slightly lighter dark background for distinction */
 }
 
 .device-actions-form {
-    flex: 0 1 auto;  /* Don't grow, but allow shrinking */
-    width: auto;  /* Adjust based on content or set a max-width */
-    min-width: 200px;  /* Ensure it doesn't shrink too much */
+    flex: 0 1 auto;
+    /* Don't grow, but allow shrinking */
+    width: auto;
+    /* Adjust based on content or set a max-width */
+    min-width: 200px;
+    /* Ensure it doesn't shrink too much */
     padding: 10px;
-    border: 1px solid #666; /* Adjusting border color for dark theme */
+    border: 1px solid #666;
+    /* Adjusting border color for dark theme */
     border-radius: 4px;
-    background: #444; /* Slightly lighter dark background for distinction */
+    background: #444;
+    /* Slightly lighter dark background for distinction */
 }
 
 .device-line-chart {
     flex: 1 1 auto;
     min-width: 50%;
     padding: 10px;
-    border: 1px solid #666; /* Adjusting border color for dark theme */
+    border: 1px solid #666;
+    /* Adjusting border color for dark theme */
     border-radius: 4px;
-    min-height: 15rem;  /* Setting a minimum height to ensure the chart is clearly visible */
-    height: 25vh; /* Chart is approximately 1/4 of the viewport height in landscape */
+    min-height: 15rem;
+    /* Setting a minimum height to ensure the chart is clearly visible */
+    height: 25vh;
+    /* Chart is approximately 1/4 of the viewport height in landscape */
 }
 
 .menu-icon,
@@ -262,4 +313,3 @@ h1 {
         /* Slightly reduce the height for very wide screens */
     }
 }
-
