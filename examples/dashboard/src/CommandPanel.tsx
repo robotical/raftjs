@@ -26,31 +26,60 @@ const examplesJson = {
 
 export default function CommandPanel() {
   const [command, setCommand] = useState('');
+  const [commandHistory, setCommandHistory] = useState<string[]>([]); // Command history state
+  const [historyIndex, setHistoryIndex] = useState<number>(-1); // Track position in history
   const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({});
 
-  // Handler to set the command in the input box
-  const handleLoadCommand = (api: string) => {
-    setCommand(api);
-  };
-
-  // Handler for key press events in the input box
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSendCommand(command);
-    }
-  };
-
-  // Handler to send command when Enter is pressed or button clicked
+  // Handler to send command when button is clicked or Enter is pressed
   const handleSendCommand = (cmd: string) => {
     if (cmd) {
       connManager.getConnector().sendRICRESTMsg(cmd, {}).then(response => {
         console.log(`Command sent: ${cmd}, Response:`, response);
+
+        // Update history only if the command is not the same as the last one
+        if (commandHistory.length === 0 || commandHistory[commandHistory.length - 1] !== cmd) {
+          setCommandHistory((prevHistory) => [...prevHistory, cmd]);
+        }
+
+        // Reset the history index and clear the command
+        setHistoryIndex(-1);
+        setCommand('');
       }).catch(error => {
         console.error(`Error sending command: ${cmd}`, error);
       });
     } else {
       console.error("Command is empty.");
     }
+  };
+
+  // Handler for key press events in the input box
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSendCommand(command);
+    } else if (e.key === 'ArrowUp') {
+      // Navigate to previous command in history
+      if (historyIndex < commandHistory.length - 1) {
+        const newIndex = historyIndex + 1;
+        setHistoryIndex(newIndex);
+        setCommand(commandHistory[commandHistory.length - 1 - newIndex]);
+      }
+    } else if (e.key === 'ArrowDown') {
+      // Navigate to next command in history
+      if (historyIndex > 0) {
+        const newIndex = historyIndex - 1;
+        setHistoryIndex(newIndex);
+        setCommand(commandHistory[commandHistory.length - 1 - newIndex]);
+      } else if (historyIndex === 0) {
+        // Clear the command input when navigating past the most recent command
+        setHistoryIndex(-1);
+        setCommand('');
+      }
+    }
+  };
+
+  // Handler to set the command in the input box
+  const handleLoadCommand = (api: string) => {
+    setCommand(api);
   };
 
   // Toggle the open/close state of a section
@@ -97,7 +126,6 @@ export default function CommandPanel() {
                   <div className="collapsible-content">
                     {section.examples.map((example, index) => (
                       <div className="example-command" key={index} title={example.api}>
-                        {/* Show tooltip with API on hover using title attribute */}
                         {example.label}
                         <button
                           className="example-load-button"
