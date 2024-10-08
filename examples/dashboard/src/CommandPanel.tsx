@@ -26,9 +26,21 @@ const examplesJson = {
 
 export default function CommandPanel() {
   const [command, setCommand] = useState('');
-  const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({}); // Store open/close state for sections
+  const [openSections, setOpenSections] = useState<{ [key: string]: boolean }>({});
 
-  // Handler to send command when button is clicked or Enter is pressed
+  // Handler to set the command in the input box
+  const handleLoadCommand = (api: string) => {
+    setCommand(api);
+  };
+
+  // Handler for key press events in the input box
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSendCommand(command);
+    }
+  };
+
+  // Handler to send command when Enter is pressed or button clicked
   const handleSendCommand = (cmd: string) => {
     if (cmd) {
       connManager.getConnector().sendRICRESTMsg(cmd, {}).then(response => {
@@ -38,13 +50,6 @@ export default function CommandPanel() {
       });
     } else {
       console.error("Command is empty.");
-    }
-  };
-
-  // Handler for key press events in the input box
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSendCommand(command);
     }
   };
 
@@ -91,10 +96,14 @@ export default function CommandPanel() {
                 {openSections[section.name] && (
                   <div className="collapsible-content">
                     {section.examples.map((example, index) => (
-                      <div className="example-command" key={index}>
+                      <div className="example-command" key={index} title={example.api}>
+                        {/* Show tooltip with API on hover using title attribute */}
                         {example.label}
-                        <button className="example-send-button" onClick={() => handleSendCommand(example.api)}>
-                          Send
+                        <button
+                          className="example-load-button"
+                          onClick={() => handleLoadCommand(example.api)}
+                        >
+                          Load
                         </button>
                       </div>
                     ))}
