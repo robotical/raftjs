@@ -49,8 +49,8 @@ export default function Main() {
                   <div className="conn-indication">
                     <h3>Connected</h3>
                   </div>
-                  <div className="action-button">
-                    <button onClick={() => connManager.disconnect()}>Disconnect</button>
+                  <div>
+                    <button className="action-button" onClick={() => connManager.disconnect()}>Disconnect</button>
                   </div>
                 </div>
               </div>

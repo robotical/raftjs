@@ -68,7 +68,13 @@ h1 {
 }
 
 .action-button {
-    margin-left: 10px;
+    color: #fff;
+    cursor: pointer;
+    background-color: #007bff;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 20px;
+    font-size: 1rem;
 }
 
 .info-boxes {
@@ -98,8 +104,11 @@ h1 {
 }
 
 .ip-addr-input {
-    width: 100%;
+    border: 1px solid #ccc;
+    border-radius: 4px;
     margin-bottom: 10px;
+    padding: 10px;
+    width: 100%;
 }
 
 .command-input {
@@ -116,6 +125,7 @@ h1 {
     background-color: #007bff;
     color: white;
     cursor: pointer;
+    font-size: 1rem;
 }
 
 .send-command-button:hover {
@@ -203,6 +213,7 @@ h1 {
     color: #fff;
     cursor: pointer;
     margin-left: 10px;
+    font-size: 1rem;
 }
 
 .example-load-button:hover {
