@@ -3,9 +3,9 @@
     "target": "es2017",
     "module": "commonjs",
     "lib": ["dom", "es2017"],
-    "outDir": "./dist/web",
-    "moduleSuffixes": [".web", ""],
+    "outDir": "./dist/react-native",
     "rootDir": "./src",
+    "moduleSuffixes": [".native", ""],
     "strict": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
@@ -25,6 +25,5 @@
     "resolveJsonModule": true,
 },
 "include": ["src","__tests__"],
-"exclude": ["node_modules","dist","**/*.test.ts", "**/*.native.ts", "**/*.native.tsx"]
-
+"exclude": ["node_modules","dist","**/*.test.ts"]
 }

@@ -14,8 +14,10 @@ import { RaftConnEvent, RaftConnEventFn } from "./RaftConnEvents";
 import RaftLog from "./RaftLog";
 import RaftMsgHandler from "./RaftMsgHandler";
 import RaftUtils from "./RaftUtils";
-import RICBLEScanner from "./RaftChannelPhoneBLEScanner";
+import RICBLEScanner from "./RaftChannelBLEScanner.native";
 import { DiscoveredRIC } from "./RaftTypes";
+
+const _bleManager = new BleManager();
 
 export default class RaftChannelPhoneBLE implements RaftChannel {
   // BLE UUIDS
@@ -24,7 +26,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
   public static RespUUID = "aa76677e-9cfd-4626-a510-0d305be57c8f";
 
   // BleManager
-  static _bleManager = new BleManager();
+
 
   // Conn event fn
   private _onConnEvent: RaftConnEventFn | null = null;
@@ -73,20 +75,25 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
   constructor() {
     RaftLog.debug('BLEChannel constructor');
 
-    // RaftChannelPhoneBLE._bleManager.setLogLevel(LogLevel.Verbose);
+    // _bleManager.setLogLevel(LogLevel.Verbose);
 
     // Scanner
     this._bleScanner = new RICBLEScanner(
-      RaftChannelPhoneBLE._bleManager,
+      _bleManager,
       [this._RICServiceUUID],
       this.scanningEvent.bind(this),
     );
 
     // Listen for BLE state changes
-    this._bleSubscrOnStateChange = RaftChannelPhoneBLE._bleManager.onStateChange(state => {
+    this._bleSubscrOnStateChange = _bleManager.onStateChange(state => {
       this._onBLEStateChange(state);
     }, true);
   }
+
+  getBleManager(): BleManager {
+    return _bleManager;
+  }
+
 
   fhBatchAckSize(): number { return this._requestedBatchAckSize; }
   fhFileBlockSize(): number { return this._requestedFileBlockSize; }
@@ -101,6 +108,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
   setOnConnEvent(connEventFn: RaftConnEventFn): void {
     this._onConnEvent = connEventFn;
   }
+
   requiresSubscription(): boolean {
     return true;
   }
@@ -124,7 +132,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     // await this.disconnect();
 
     // Start scanning
-    this._bleScanner.scanningStart();
+    await this._bleScanner.scanningStart();
 
     // Event
     RaftLog.debug(`BLEChannel discoveryStart emitting BLE_SCANNING_STARTED`);
@@ -201,7 +209,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     this._bleScanner.scanningStop();
 
     // Now connecting
-    // this.emit(RaftConnEvent.CONN_CONNECTING, { deviceId: discoveredRIC.id });
+    this.emit(RaftConnEvent.CONN_CONNECTING, { deviceId: discoveredRIC.id });
 
     // Connect
     this._ricToConnectTo = discoveredRIC;
@@ -210,15 +218,15 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     // Check if ok
     if (!connOk) {
       // Emit failure
-      // this.emit(RaftConnEvent.CONN_CONNECTION_FAILED);
+      this.emit(RaftConnEvent.CONN_CONNECTION_FAILED);
       return false;
     }
 
     // Emit success
-    // this.emit(RaftConnEvent.CONN_CONNECTED, {
-    //   deviceId: this._ricToConnectTo.id,
-    //   name: this._ricToConnectTo.name,
-    // });
+    this.emit(RaftConnEvent.CONN_CONNECTED, {
+      deviceId: this._ricToConnectTo.id,
+      name: this._ricToConnectTo.name,
+    });
     return true;
   }
 
@@ -243,7 +251,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
       this._bleSubscrOnDisconnect = null;
     }
     // Disconnect from the connected device
-    const connMarties = await RaftChannelPhoneBLE._bleManager.connectedDevices([
+    const connMarties = await _bleManager.connectedDevices([
       this._RICServiceUUID,
     ]);
     if (connMarties.length == 0) {
@@ -253,7 +261,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
         RaftLog.debug(`Found connected device ${connRIC.id}`);
         RaftLog.debug(`ID to disconnect ${connectedRIC?.id}`);
         if (connectedRIC?.id === connRIC.id) {
-          await RaftChannelPhoneBLE._bleManager.cancelDeviceConnection(connRIC.id);
+          await _bleManager.cancelDeviceConnection(connRIC.id);
         }
       }
     }
@@ -276,10 +284,10 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
       return false;
     }
 
-    let deviceConnected = null;
+    let deviceConnected: Device | null = null;
     for (let connRetry = 0; connRetry < 5; connRetry++) {
       try {
-        deviceConnected = await RaftChannelPhoneBLE._bleManager.connectToDevice(
+        deviceConnected = await _bleManager.connectToDevice(
           this._ricToConnectTo.id,
           {
             timeout: 3000,
@@ -316,7 +324,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
 
     // Request high-priority connection
     try {
-      await RaftChannelPhoneBLE._bleManager.requestConnectionPriorityForDevice(
+      await _bleManager.requestConnectionPriorityForDevice(
         this._ricToConnectTo.id,
         ConnectionPriority.High,
       );
@@ -379,7 +387,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     }
 
     // Attach a disconnected listener
-    this._bleSubscrOnDisconnect = RaftChannelPhoneBLE._bleManager.onDeviceDisconnected(
+    this._bleSubscrOnDisconnect = _bleManager.onDeviceDisconnected(
       this._bleDevice.id,
       async () => {
         // this._storeConnectionInfo(); // //
@@ -473,7 +481,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
 
     // Extract message
     const msgFrameBase64 = characteristic!.value;
-    
+
     const rxFrame = RaftUtils.atob(msgFrameBase64!);
 
     // Debug

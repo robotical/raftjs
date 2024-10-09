@@ -1,19 +1,14 @@
 import { RaftSubscribeForUpdatesCBType, RaftSystemType } from "../../../../src/RaftSystemType";
 import { RaftEventFn, RaftLog, RaftOKFail, RaftPublishEvent, RaftPublishEventNames, RaftSystemUtils } from "../../../../src/main";
 import { CogStateInfo } from "./CogStateInfo";
+import { DeviceManager } from "../../../../src/RaftDeviceManager";
 
 export default class SystemTypeCog implements RaftSystemType {
     nameForDialogs = "Robotical Cog";
     defaultWiFiHostname = "Cog";
     firmwareDestName = "ricfw";
     normalFileDestName = "fs";
-    connectorOptions = {wsSuffix: "wsjson"};
-
-    // Latest data from servos, IMU, etc
-    private _stateInfo: CogStateInfo = new CogStateInfo();
-    getStateInfo(): CogStateInfo {
-      return this._stateInfo;
-    }
+    connectorOptions = {wsSuffix: "wsjson", bleConnItvlMs: 50};
 
     // Event handler
     private _onEvent: RaftEventFn | null = null;
@@ -21,10 +16,20 @@ export default class SystemTypeCog implements RaftSystemType {
     // Raft system utils
     private _systemUtils: RaftSystemUtils | null = null;
 
+    // Device manager
+    private _deviceManager: DeviceManager = new DeviceManager();
+    
     // Setup
     setup(systemUtils: RaftSystemUtils, onEvent: RaftEventFn | null): void {
       this._systemUtils = systemUtils;
       this._onEvent = onEvent;
+      this._deviceManager.setup(systemUtils);
+    }
+
+    // Latest data from servos, IMU, etc
+    private _stateInfo: CogStateInfo = new CogStateInfo(this._deviceManager);
+    getStateInfo(): CogStateInfo {
+      return this._stateInfo;
     }
 
     // Subscribe for updates
@@ -72,6 +77,8 @@ export default class SystemTypeCog implements RaftSystemType {
             frameTimeMs: frameTimeMs
           });
       }
-
     };
+
+    // Get device manager
+    deviceMgrIF = this._deviceManager;
   }
