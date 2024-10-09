@@ -56,4 +56,5 @@
   "peerDependencies": {
     "react-native-ble-plx": "^3.2.1"
   }
+
 }
