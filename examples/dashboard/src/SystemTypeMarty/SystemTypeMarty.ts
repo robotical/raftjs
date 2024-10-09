@@ -11,7 +11,7 @@ export default class SystemTypeMarty implements RaftSystemType {
   defaultWiFiHostname = "Marty";
   firmwareDestName = "ricfw";
   normalFileDestName = "fs";
-  connectorOptions = {wsSuffix: "ws"};
+  connectorOptions = {wsSuffix: "ws", bleConnItvlMs: 7.5};
 
   // LED Pattern checker
   private _ledPatternChecker: RICLEDPatternChecker = new RICLEDPatternChecker();
@@ -109,5 +109,8 @@ export default class SystemTypeMarty implements RaftSystemType {
         });
     }
   }
+
+  // Device manager interface
+  deviceMgrIF = this._ricStateInfo;
 }
 

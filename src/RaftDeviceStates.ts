@@ -70,7 +70,7 @@ export interface DeviceTimeline {
 }
     
 export interface DeviceState {
-    deviceTypeInfo: DeviceTypeInfo;
+    deviceTypeInfo: DeviceTypeInfo | undefined;
     deviceTimeline: DeviceTimeline;
     deviceAttributes: DeviceAttributesState;
     deviceIsNew: boolean;
@@ -86,4 +86,3 @@ export class DevicesState {
 export function getDeviceKey(busName: string, devAddr: string): string {
     return `${busName}_${devAddr}`;
 }
-
