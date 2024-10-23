@@ -49,8 +49,8 @@ export default function Main() {
                   <div className="conn-indication">
                     <h3>Connected</h3>
                   </div>
-                  <div className="action-button">
-                    <button onClick={() => connManager.disconnect()}>Disconnect</button>
+                  <div>
+                    <button className="action-button" onClick={() => connManager.disconnect()}>Disconnect</button>
                   </div>
                 </div>
               </div>
@@ -70,7 +70,7 @@ export default function Main() {
                   const ipAddrElem = document.getElementById("ip-addr") as HTMLInputElement;
                   if (ipAddrElem) {
                     const ipAddr = ipAddrElem.value;
-                    connManager.connect("WebSocket", ipAddr);
+                    connManager.connect("WebSocket", ipAddr, "");
                   } else {
                     console.error("No IP address entered");
                   }
@@ -82,7 +82,7 @@ export default function Main() {
               <div className="info-box">
                 <h3>WebBLE</h3>
                 <button className="action-button" onClick={() => {
-                  connManager.connect("WebBLE", "");
+                  connManager.connect("WebBLE", "", "");
                 }
                 }>
                   Connect
@@ -91,7 +91,7 @@ export default function Main() {
               <div className="info-box">
                 <h3>WebSerial</h3>
                 <button className="action-button" onClick={() => {
-                  connManager.connect("WebSerial", "");
+                  connManager.connect("WebSerial", "", "");
                 }
                 }>
                   Connect

@@ -155,7 +155,7 @@ export default class AttributeHandler {
 
         // Check if outside bounds of message
         if (curFieldBufIdx >= msgBuffer.length) {
-            console.warn(`DeviceManager msg outside bounds msgBuffer ${msgBuffer} attrName ${attrDef.n}`);
+            // console.warn(`DeviceManager msg outside bounds msgBuffer ${msgBuffer} attrName ${attrDef.n}`);
             return { values: [], newMsgBufIdx: -1 };
         }
 

@@ -52,8 +52,13 @@ export default class RICBLEScanner {
     return RICBLEScanner._scanInProgress;
   }
 
-  async scanningStart(): Promise<boolean> {
-
+  async scanningStart(uuid?: string): Promise<boolean> {
+    let uuidsOfServicesToScanFor: string[] = [];
+    if (uuid) {
+      uuidsOfServicesToScanFor.push(uuid);
+    } else {
+      uuidsOfServicesToScanFor = this._uuidsOfServicesToScanFor;
+    }
     // Handle discovery
     RaftLog.debug('Starting Scanning...');
 
@@ -66,7 +71,7 @@ export default class RICBLEScanner {
     // Start scan
     try {
       this._bleManager.startDeviceScan(
-        this._uuidsOfServicesToScanFor,
+        uuidsOfServicesToScanFor,
         { allowDuplicates: true },
         (error: BleError | null, device: Device | null) => {
           // RaftLog.debug(`discoveryFoundCB error ${error}`);

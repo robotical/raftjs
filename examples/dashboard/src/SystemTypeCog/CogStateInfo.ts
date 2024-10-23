@@ -1,7 +1,6 @@
 import { time } from "console";
 import RaftLog from "../../../../src/RaftLog";
-import { TextDecoder } from 'text-encoding';
-import { DeviceMsgJson } from "../../../../src/RaftDeviceMsg";
+import { DeviceManager } from "../../../../src/RaftDeviceManager";
 
 // export interface IMUStateInfo {
 //     gx: number;
@@ -42,6 +41,10 @@ export class CogStateInfo {
     public constructor(private _deviceManager: DeviceManager) {
     }
 
+    get deviceManager(): DeviceManager {
+        return this._deviceManager; 
+    }
+
     updateFromMsg(rxMsg: Uint8Array, frameTimeMs: number): Array<string> {
 
         // Debug 
@@ -54,14 +57,6 @@ export class CogStateInfo {
         // Handle using device manager
         this._deviceManager.handleClientMsgJson(jsonString);
 
-        // Parse JSON string to TypeScript object
-        let deviceMsg: DeviceMsgJson;
-        try {
-            deviceMsg = JSON.parse(jsonString);
-        } catch (error) {
-            RaftLog.warn(`CogStateInfo: updateFromMsg: JSON parse error: ${error}`);
-            return [];
-        }
 
     //     // Debug
     //     // RaftLog.info(`CogStateInfo: updateFromMsg: jsonString: ${jsonString}`);

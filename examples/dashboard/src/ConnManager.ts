@@ -46,12 +46,12 @@ export default class ConnManager {
     return this._connector;
   }
 
-  private async getBleDevice(): Promise<BluetoothDevice | null> {
+  private async getBleDevice(uuid?: string): Promise<BluetoothDevice | null> {
+    const uuids = uuid ? [uuid] : [RaftChannelBLE.RICServiceUUID, RaftChannelBLE.CogServiceUUID];
+    const filtersArray = uuids.map((uuid) => ({ services: [uuid] }));
     try {
       const dev = await navigator.bluetooth.requestDevice({
-        filters: [
-          { services: [RaftChannelBLE.ServiceUUID] }
-        ],
+        filters: filtersArray,
         optionalServices: []
       });
       return dev;
@@ -62,21 +62,20 @@ export default class ConnManager {
   }
 
   // Connect
-  public async connect(method: string, locator: string | object): Promise<boolean> {
-
-    // Hook up the connector
+  public async connect(method: string, locator: string | object, uuid: string): Promise<boolean> {
     this._connector.setEventListener((evtType, eventEnum, eventName, eventData) => {
-      RaftLog.info(`ConnManager - event ${eventName}`);
+      RaftLog.verbose(`ConnManager - event ${eventName}`);
       if (this._onConnectionEvent) {
         this._onConnectionEvent(evtType, eventEnum, eventName, eventData);
       }
     });
+    await this._connector.initializeChannel(method);
     // Set the connector websocket suffix
     if (method === "WebBLE") {
-      const dev = await this.getBleDevice();
-      return this._connector.connect(method, dev as object);
+      const dev = await this.getBleDevice(uuid);
+      return this._connector.connect(dev as object);
     }
-    return this._connector.connect(method, locator);
+    return this._connector.connect(locator);
   }
 
   // Disconnect

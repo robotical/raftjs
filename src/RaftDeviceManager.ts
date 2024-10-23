@@ -15,6 +15,7 @@ import struct, { DataType } from 'python-struct';
 import AttributeHandler from "./RaftAttributeHandler";
 import RaftSystemUtils from "./RaftSystemUtils";
 import RaftDeviceMgrIF from "./RaftDeviceMgrIF";
+import { Buffer } from 'buffer';
 
 export class DeviceManager implements RaftDeviceMgrIF{
 

@@ -10,6 +10,7 @@ export interface ConnectorOptions {
   wsSuffix?: string;
   connTimeoutMs?: number;
   bleConnItvlMs?: number;
+  bleUuid?: string;
 }
 
 export interface RaftSystemType {
