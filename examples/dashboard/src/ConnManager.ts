@@ -1,6 +1,7 @@
 import { RaftChannelWebBLE, RaftConnector, RaftEventFn, RaftLog, RaftSystemUtils } from "../../../src/main";
 import SystemTypeCog from "./SystemTypeCog/SystemTypeCog";
 import SystemTypeMarty from "./SystemTypeMarty/SystemTypeMarty";
+import SystemTypeGeneric from "./SystemTypeGeneric/SystemTypeGeneric";
 
 export default class ConnManager {
 
@@ -16,9 +17,10 @@ export default class ConnManager {
     } else if (systemInfo.SystemName === "Cog") {
       RaftLog.info("ConnManager - Cog detected");
       return new SystemTypeCog();
+    } else {
+      RaftLog.info(`ConnManager - using generic system ${systemInfo.SystemName} ${JSON.stringify(systemInfo)}`);
+      return new SystemTypeGeneric();
     }
-    RaftLog.error(`ConnManager - unknown system ${systemInfo.SystemName} ${JSON.stringify(systemInfo)}`);
-    return null;
   });
 
   // Callback on connection event
