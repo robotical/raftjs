@@ -1,6 +1,6 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// RaftChannelWebBLE
+// RaftChannelBLE
 // Part of RaftJS
 //
 // Rob Dobson & Chris Greening 2020-2024
@@ -15,9 +15,10 @@ import RaftMsgHandler from "./RaftMsgHandler";
 import { ConnectorOptions } from "./RaftSystemType";
 import RaftUtils from "./RaftUtils";
 
-export default class RaftChannelWebBLE implements RaftChannel {
+export default class RaftChannelBLE implements RaftChannel {
   // BLE UUIDS
-  public static ServiceUUID = "aa76677e-9cfd-4626-a510-0d305be57c8d";
+  public static RICServiceUUID = "aa76677e-9cfd-4626-a510-0d305be57c8d";
+  public static CogServiceUUID = "da903f65-d5c2-4f4d-a065-d1aade7af874";
   public static CmdUUID = "aa76677e-9cfd-4626-a510-0d305be57c8e";
   public static RespUUID = "aa76677e-9cfd-4626-a510-0d305be57c8f";
 
@@ -66,7 +67,10 @@ export default class RaftChannelWebBLE implements RaftChannel {
 
   // RICREST command before disconnect
   ricRestCmdBeforeDisconnect(): string | null {
-    return "blerestart";
+    // NT: Sending blerestart *before* disconnecting results in timeout issues as the device is no longer connected when we try to actually disconnect
+    // suggested fix: allow callaback command to be sent after disconnect on the fw side 
+    // return "blerestart";
+    return null;
   }
 
   // isEnabled
@@ -77,7 +81,7 @@ export default class RaftChannelWebBLE implements RaftChannel {
     } else {
       window.alert(
         "Web Bluetooth API is not available.\n" +
-          'Please make sure the "Experimental Web Platform features" flag is enabled.'
+        'Please make sure the "Experimental Web Platform features" flag is enabled.'
       );
       return false;
     }
@@ -96,7 +100,7 @@ export default class RaftChannelWebBLE implements RaftChannel {
   // Disconnection event
   onDisconnected(event: Event): void {
     const device = event.target as BluetoothDevice;
-    RaftLog.debug(`RaftChannelWebBLE.onDisconnected ${device.name}`);
+    RaftLog.debug(`RaftChannelBLE.onDisconnected ${device.name}`);
     if (this._bleDevice) {
       this._bleDevice.removeEventListener(
         "gattserverdisconnected",
@@ -126,9 +130,8 @@ export default class RaftChannelWebBLE implements RaftChannel {
           const connTimeoutMs = _connectorOptions.connTimeoutMs || 5000;
           await RaftUtils.withTimeout(connTimeoutMs, this._bleDevice.gatt.connect());
           RaftLog.debug(
-            `RaftChannelWebBLE.connect - ${
-              this._bleDevice.gatt.connected ? "OK" : "FAILED"
-            } attempt ${connRetry+1} connection to device ${this._bleDevice.name}`
+            `RaftChannelBLE.connect - ${this._bleDevice.gatt.connected ? "OK" : "FAILED"
+            } attempt ${connRetry + 1} connection to device ${this._bleDevice.name}`
           );
 
           if (this._bleDevice.gatt.connected) {
@@ -138,52 +141,69 @@ export default class RaftChannelWebBLE implements RaftChannel {
 
             // Get service
             try {
+              let service: BluetoothRemoteGATTService | null = null;
+              // iterate over known services
+              for (const serviceUUID of [RaftChannelBLE.CogServiceUUID, RaftChannelBLE.RICServiceUUID]) {
+                try {
+                  service = await this._bleDevice.gatt.getPrimaryService(serviceUUID);
+                  if (service) {
+                    break;
+                  }
+                } catch (error) {
+                  RaftLog.warn(
+                    `RaftChannelBLE.connect - cannot get primary service ${error}`
+                  );
+                }
+              }
 
-              const service = await this._bleDevice.gatt.getPrimaryService(
-                RaftChannelWebBLE.ServiceUUID
-              );
+              if (!service) {
+                RaftLog.error(
+                  `RaftChannelBLE.connect - cannot get primary service - giving up`
+                );
+                return false;
+              }
               RaftLog.debug(
-               `RaftChannelWebBLE.connect - found service: ${service.uuid}`
+                `RaftChannelBLE.connect - found service: ${service.uuid}`
               );
 
               try {
                 // Get Tx and Rx characteristics
                 this._characteristicTx = await service.getCharacteristic(
-                  RaftChannelWebBLE.CmdUUID
+                  RaftChannelBLE.CmdUUID
                 );
                 RaftLog.debug(
-                  `RaftChannelWebBLE.connect - found char ${this._characteristicTx.uuid}`
+                  `RaftChannelBLE.connect - found char ${this._characteristicTx.uuid}`
                 );
                 this._characteristicRx = await service.getCharacteristic(
-                  RaftChannelWebBLE.RespUUID
+                  RaftChannelBLE.RespUUID
                 );
                 RaftLog.debug(
-                   `RaftChannelWebBLE.connect - found char ${this._characteristicRx.uuid}`
+                  `RaftChannelBLE.connect - found char ${this._characteristicRx.uuid}`
                 );
 
                 // Notifications of received messages
                 try {
                   await this._characteristicRx.startNotifications();
                   RaftLog.debug(
-                    "RaftChannelWebBLE.connect - notifications started"
+                    "RaftChannelBLE.connect - notifications started"
                   );
                   this._characteristicRx.addEventListener(
-                    "characteristicvaluechanged", 
+                    "characteristicvaluechanged",
                     this._onMsgRx.bind(this)
                   );
                 } catch (error) {
                   RaftLog.debug(
-                    "RaftChannelWebBLE.connnect - addEventListener failed " + error
+                    "RaftChannelBLE.connnect - addEventListener failed " + error
                   );
                 }
 
                 // Connected ok
-                RaftLog.debug(`RaftChannelWebBLE.connect ${this._bleDevice.name}`);
+                RaftLog.debug(`RaftChannelBLE.connect ${this._bleDevice.name}`);
 
                 // Add disconnect listener
                 this._eventListenerFn = this.onDisconnected.bind(this);
                 this._bleDevice.addEventListener(
-                  "gattserverdisconnected", 
+                  "gattserverdisconnected",
                   this._eventListenerFn
                 );
 
@@ -192,36 +212,36 @@ export default class RaftChannelWebBLE implements RaftChannel {
                 return true;
               } catch (error) {
                 RaftLog.error(
-                  `RaftChannelWebBLE.connect - cannot find characteristic: ${error}`
+                  `RaftChannelBLE.connect - cannot find characteristic: ${error}`
                 );
               }
             } catch (error) {
               if (connRetry === this._maxConnRetries - 1) {
                 RaftLog.error(
-                  `RaftChannelWebBLE.connect - cannot get primary service ${error} - attempt #${connRetry+1} - giving up`
+                  `RaftChannelBLE.connect - cannot get primary service ${error} - attempt #${connRetry + 1} - giving up`
                 );
               } else {
                 RaftLog.debug(
-                   `RaftChannelWebBLE.connect - cannot get primary service - attempt #${connRetry+1} ${error}`
+                  `RaftChannelBLE.connect - cannot get primary service - attempt #${connRetry + 1} ${error}`
                 );
               }
             }
           }
         }
       } catch (error: unknown) {
-        RaftLog.warn(`RaftChannelWebBLE.connect - cannot connect ${error}`);
+        RaftLog.warn(`RaftChannelBLE.connect - cannot connect ${error}`);
       }
 
       // Disconnect
       if (
-        this._bleDevice && 
-        this._bleDevice.gatt && 
+        this._bleDevice &&
+        this._bleDevice.gatt &&
         this._bleDevice.gatt.connected
       ) {
         try {
           await this._bleDevice.gatt.disconnect();
         } catch (error) {
-          RaftLog.warn(`RaftChannelWebBLE.connect - cannot disconnect ${error}`);
+          RaftLog.warn(`RaftChannelBLE.connect - cannot disconnect ${error}`);
         }
       }
     }
@@ -233,19 +253,19 @@ export default class RaftChannelWebBLE implements RaftChannel {
   async disconnect(): Promise<void> {
     if (this._bleDevice && this._bleDevice.gatt) {
       try {
-        RaftLog.debug(`RaftChannelWebBLE.disconnect GATT`);
+        RaftLog.debug(`RaftChannelBLE.disconnect GATT`);
         await this._bleDevice.gatt.disconnect();
       } catch (error) {
-        RaftLog.debug(`RaftChannelWebBLE.disconnect ${error}`);
+        RaftLog.debug(`RaftChannelBLE.disconnect ${error}`);
       }
     }
   }
 
-  pauseConnection(pause: boolean): void { 
+  pauseConnection(pause: boolean): void {
     RaftLog.verbose(
       `pauseConnection ${pause} - no effect for this channel type`
-    ); 
-    return; 
+    );
+    return;
   }
 
   // Handle notifications
@@ -263,7 +283,7 @@ export default class RaftChannelWebBLE implements RaftChannel {
         try {
           this._raftMsgHandler.handleNewRxMsg(msg);
         } catch (error) {
-          RaftLog.debug(`RaftChannelWebBLE.onMsgRx ${error}`);
+          RaftLog.debug(`RaftChannelBLE.onMsgRx ${error}`);
         }
       }
     }
@@ -272,11 +292,11 @@ export default class RaftChannelWebBLE implements RaftChannel {
   // Send a message
   async sendTxMsg(
     msg: Uint8Array
-//    _sendWithResponse: boolean
+    //    _sendWithResponse: boolean
   ): Promise<boolean> {
     // Check valid
     if (this._bleDevice === null) {
-        return false;
+      return false;
     }
 
     // Retry upto maxRetries
@@ -302,7 +322,7 @@ export default class RaftChannelWebBLE implements RaftChannel {
       } catch (error) {
         if (retryIdx === this.maxRetries - 1) {
           RaftLog.info(
-            `RaftChannelWebBLE.sendTxMsg ${error} retried ${retryIdx} times`
+            `RaftChannelBLE.sendTxMsg ${error} retried ${retryIdx} times`
           );
         }
       }
@@ -313,11 +333,11 @@ export default class RaftChannelWebBLE implements RaftChannel {
   // Send message without awaiting response
   async sendTxMsgNoAwait(
     msg: Uint8Array
-//    _sendWithResponse: boolean
+    //    _sendWithResponse: boolean
   ): Promise<boolean> {
     // Check valid
     if (this._bleDevice === null) {
-        return false;
+      return false;
     }
 
     // Check for min time between messages

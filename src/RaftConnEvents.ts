@@ -21,7 +21,13 @@ export enum RaftConnEvent {
     CONN_GETTING_INFO,
     CONN_GOT_INFO,
     CONN_BLUETOOTH_STATE,
-    CONN_STREAMING_ISSUE
+    CONN_STREAMING_ISSUE,
+
+    // PHONE_BLE_ONLY
+    BLE_SCANNING_STARTED,
+    BLE_DEVICE_FOUND,
+    BLE_SCANNING_FINISHED,
+    BLE_BLUETOOTH_STATE,
 }
 
 export const RaftConnEventNames = {
@@ -38,9 +44,15 @@ export const RaftConnEventNames = {
     [RaftConnEvent.CONN_GOT_INFO]: 'GOT_INFO',
     [RaftConnEvent.CONN_BLUETOOTH_STATE]: 'BLUETOOTH_STATE',
     [RaftConnEvent.CONN_STREAMING_ISSUE]: 'STREAMING_ISSUE',
+
+    // PHONE_BLE_ONLY
+    [RaftConnEvent.BLE_SCANNING_STARTED]: 'BLE_SCANNING_STARTED',
+    [RaftConnEvent.BLE_DEVICE_FOUND]: 'BLE_DEVICE_FOUND',
+    [RaftConnEvent.BLE_SCANNING_FINISHED]: 'BLE_SCANNING_FINISHED',
+    [RaftConnEvent.BLE_BLUETOOTH_STATE]: 'BLE_BLUETOOTH_STATE',
 };
   
 export type RaftConnEventFn = (
   eventType: RaftConnEvent,
-  data?: string[] | string | null,
+  data?: any | string[] | string | null,
 ) => void;

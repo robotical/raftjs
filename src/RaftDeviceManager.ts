@@ -15,6 +15,7 @@ import struct, { DataType } from 'python-struct';
 import AttributeHandler from "./RaftAttributeHandler";
 import RaftSystemUtils from "./RaftSystemUtils";
 import RaftDeviceMgrIF from "./RaftDeviceMgrIF";
+import { Buffer } from 'buffer';
 
 export class DeviceManager implements RaftDeviceMgrIF{
 
@@ -22,7 +23,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
     // private static _instance: DeviceManager;
 
     // Max data points to store
-    private _maxDatapointsToStore = 10000;
+    private _maxDatapointsToStore = 1000;
 
     // Min time between attempts to retrieve device type info
     private _minTimeBetweenDeviceTypeInfoRetrievalMs = 60000;

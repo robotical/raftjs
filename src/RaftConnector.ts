@@ -9,7 +9,6 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import RaftChannel from "./RaftChannel";
-import RaftChannelWebBLE from "./RaftChannelWebBLE";
 import RaftMsgHandler, { RaftMsgResultCode } from "./RaftMsgHandler";
 import RaftChannelWebSocket from "./RaftChannelWebSocket";
 import RaftChannelWebSerial from "./RaftChannelWebSerial";
@@ -23,6 +22,8 @@ import { RaftConnEvent, RaftConnEventNames } from "./RaftConnEvents";
 import { RaftGetSystemTypeCBType, RaftSystemType } from "./RaftSystemType";
 import { RaftUpdateEvent, RaftUpdateEventNames } from "./RaftUpdateEvents";
 import RaftUpdateManager from "./RaftUpdateManager";
+import { createBLEChannel } from "./RaftChannelBLEFactory";
+
 
 export default class RaftConnector {
 
@@ -155,7 +156,7 @@ export default class RaftConnector {
     return this._channelConnMethod;
   }
 
-    /**
+  /**
    * Get connection locator
    * @returns string | object - connection locator
    * */
@@ -204,51 +205,27 @@ export default class RaftConnector {
   }
 
   /**
-   * Connect to a Raft application
-   *
-   * @param {string} method - can be "WebBLE", "WebSocket" or "WebSerial"
-   * @param {string | object} locator - either a string (WebSocket URL or serial port) or an object (WebBLE)
-   * @returns Promise<boolean>
-   *
+   * Initialize the Raft channel
    */
-  async connect(method: string, locator: string | object): Promise<boolean> {
-
-    // Ensure disconnected
-    try {
-      await this.disconnect();
-    } catch (err) {
-      RaftLog.error('RaftConnector.connect - error: ' + err);
-      // Ignore
-    }
-
-    // Check connection method
-    let connMethod = "";
-    if (method === 'WebBLE' && typeof locator === 'object' && locator !== null) {
-
-      // Create channel
-      this._raftChannel = new RaftChannelWebBLE();
-      connMethod = 'WebBLE';
-
-    } else if (((method === 'WebSocket') || (method === 'wifi')) && (typeof locator === 'string')) {
-
-      // Create channel
+  async initializeChannel(method: string): Promise<boolean> {
+    // Initialize raft channel
+    if (method === 'WebBLE' || method === 'PhoneBLE') {
+      const RaftChannelBLE = createBLEChannel();
+      this._raftChannel = new RaftChannelBLE();
+      this._channelConnMethod = method;
+    } else if (method === 'WebSocket' || method === 'wifi') {
       this._raftChannel = new RaftChannelWebSocket();
-      connMethod = 'WebSocket';
-    } else if (((method === 'WebSerial'))) {
+      this._channelConnMethod = 'WebSocket';
+    } else if (method === 'WebSerial') {
       this._raftChannel = new RaftChannelWebSerial();
-      connMethod = 'WebSerial';
+      this._channelConnMethod = 'WebSerial';
+    } else {
+      RaftLog.error('Unknown method: ' + method);
+      return false;
     }
-
-    RaftLog.debug(`connecting with connMethod ${connMethod}`);
 
     // Check channel established
-    let connOk = false;
     if (this._raftChannel !== null) {
-
-      // Connection method and locator
-      this._channelConnMethod = connMethod;
-      this._channelConnLocator = locator;
-
       // Set message handler
       this._raftChannel.setMsgHandler(this._raftMsgHandler);
       this._raftChannel.setOnConnEvent(this.onConnEvent.bind(this));
@@ -257,62 +234,79 @@ export default class RaftConnector {
       this._raftMsgHandler.registerForResults(this);
       this._raftMsgHandler.registerMsgSender(this._raftChannel);
 
-      // Connect
-      try {
-
-        // Event
-        this.onConnEvent(RaftConnEvent.CONN_CONNECTING);
-
-        // Connect
-        connOk = await this._connectToChannel();
-      } catch (err) {
-        RaftLog.error('RaftConnector.connect - error: ' + err);
-      }
-
-      // Check ok
-      if (connOk) {
-
-        // Get system type
-        if (this._getSystemTypeCB) {
-          // Get system type
-          this._systemType = await this._getSystemTypeCB(this._raftSystemUtils);
-
-          // Set defaults
-          if (this._systemType) {
-            this._raftSystemUtils.setDefaultWiFiHostname(this._systemType.defaultWiFiHostname);
-          }
-        }
-
-        // Setup system type
-        if (this._systemType) {
-          this._systemType.setup(this._raftSystemUtils, this._onEventFn);
-        }
-
-        // Check if subscription required
-        if (this._systemType &&
-          this._systemType.subscribeForUpdates &&
-          this._raftChannel.requiresSubscription()) {
-          try {
-            // Subscription
-            await this._systemType.subscribeForUpdates(this._raftSystemUtils, true);
-            RaftLog.info(`connect subscribed for updates`);
-          } catch (error: unknown) {
-            RaftLog.warn(`connect subscribe for updates failed ${error}`)
-          }
-        }
-
-        // Send connected event
-        this.onConnEvent(RaftConnEvent.CONN_CONNECTED);
-
-      } else {
-        // Failed Event
-        this.onConnEvent(RaftConnEvent.CONN_CONNECTION_FAILED);
-      }
-
-      // configure file handler
-      this.configureFileHandler(this._raftChannel.fhFileBlockSize(), this._raftChannel.fhBatchAckSize());
+      return true;
     } else {
       this._channelConnMethod = "";
+      return false;
+    }
+  }
+
+  /**
+   * Connect to a Raft device
+   *
+   * @param {string | object} locator - either a string (WebSocket URL or serial port) or an object (WebBLE)
+   * @returns Promise<boolean>
+   *
+   */
+  async connect(locator: string | object): Promise<boolean> {
+    if (!this._raftChannel) {
+      RaftLog.error('Raft channel is not initialized.');
+      return false;
+    }
+
+    // Store locator
+    this._channelConnLocator = locator;
+
+    // Connect
+    let connOk = false;
+    try {
+      // Event
+      this.onConnEvent(RaftConnEvent.CONN_CONNECTING);
+
+      // Connect
+      connOk = await this._connectToChannel();
+    } catch (err) {
+      RaftLog.error('RaftConnector.connect - error: ' + err);
+    }
+
+    if (connOk) {
+      // Get system type
+      if (this._getSystemTypeCB) {
+        // Get system type
+        this._systemType = await this._getSystemTypeCB(this._raftSystemUtils);
+
+        // Set defaults
+        if (this._systemType) {
+          this._raftSystemUtils.setDefaultWiFiHostname(this._systemType.defaultWiFiHostname);
+        }
+      }
+
+      // Setup system type
+      if (this._systemType) {
+        this._systemType.setup(this._raftSystemUtils, this._onEventFn);
+      }
+
+      // Check if subscription required
+      if (this._systemType &&
+        this._systemType.subscribeForUpdates &&
+        this._raftChannel.requiresSubscription()) {
+        try {
+          // Subscription
+          await this._systemType.subscribeForUpdates(this._raftSystemUtils, true);
+          RaftLog.info(`connect subscribed for updates`);
+        } catch (error: unknown) {
+          RaftLog.warn(`connect subscribe for updates failed ${error}`)
+        }
+      }
+
+      // Send connected event
+      this.onConnEvent(RaftConnEvent.CONN_CONNECTED);
+
+    } else {
+      // Failed Event
+      this.onConnEvent(RaftConnEvent.CONN_CONNECTION_FAILED);
+      // configure file handler
+      this.configureFileHandler(this._raftChannel.fhFileBlockSize(), this._raftChannel.fhBatchAckSize());
     }
 
     return connOk;
@@ -565,7 +559,6 @@ export default class RaftConnector {
    * @returns void
    */
   onConnEvent(eventEnum: RaftConnEvent, data: object | string | null | undefined = undefined): void {
-
     // Handle information clearing on disconnect
     switch (eventEnum) {
       case RaftConnEvent.CONN_DISCONNECTED:
@@ -598,7 +591,6 @@ export default class RaftConnector {
         }
         break;
     }
-
     // Notify
     if (this._onEventFn) {
       this._onEventFn("conn", eventEnum, RaftConnEventNames[eventEnum], data);
@@ -741,5 +733,5 @@ export default class RaftConnector {
       firmwareBaseURL,
       this._raftChannel
     );
-  }  
+  }
 }
