@@ -247,4 +247,3 @@ export type PystatusMsgType = {
   running: string;
   rslt: string;
 };
-

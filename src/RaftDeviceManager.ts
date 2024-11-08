@@ -9,55 +9,44 @@
 
 import { DeviceAttributeState, DevicesState, DeviceState, getDeviceKey } from "./RaftDeviceStates";
 import { DeviceMsgJson } from "./RaftDeviceMsg";
-import { DeviceTypeInfo, DeviceTypeInfoTestJsonFile, DeviceTypeAction, DeviceTypeInfoRecs } from "./RaftDeviceInfo";
+import { RaftOKFail } from './RaftTypes';
+import { DeviceTypeInfo, DeviceTypeAction, DeviceTypeInfoRecs, RaftDevTypeInfoResponse } from "./RaftDeviceInfo";
 import struct, { DataType } from 'python-struct';
-import TestDataGen from "./TestDataGen";
 import AttributeHandler from "./RaftAttributeHandler";
+import RaftSystemUtils from "./RaftSystemUtils";
+import RaftDeviceMgrIF from "./RaftDeviceMgrIF";
 
-let testingDeviceTypeRecsConditionalLoadPromise: Promise<any> | null = null;
-if (process.env.TEST_DATA) {
-    testingDeviceTypeRecsConditionalLoadPromise = import('../testdata/TestDeviceTypeRecs.json');
-}
-
-export class DeviceManager {
+export class DeviceManager implements RaftDeviceMgrIF{
 
     // Singleton
-    private static _instance: DeviceManager;
+    // private static _instance: DeviceManager;
 
     // Max data points to store
-    private _maxDatapointsToStore = 1000;
+    private _maxDatapointsToStore = 10000;
+
+    // Min time between attempts to retrieve device type info
+    private _minTimeBetweenDeviceTypeInfoRetrievalMs = 60000;
 
     // Attribute handler
     private _attributeHandler = new AttributeHandler();
 
-    // Server address
-    private _serverAddressPrefix = "";
-
-    // URL prefix
-    private _urlPrefix: string = "/api";
-
     // Devices state
     private _devicesState = new DevicesState();
+
+    // Last time each device was updated - used to detect devices that are no longer present
+    private _deviceLastUpdateTime: { [deviceKey: string]: number } = {};
+
+    // Flag indicating that removed devices should be removed from the state
+    private _removeDevicesFlag = true;
+    private _removeDevicesTimeMs = 60000;
+
+    // System utils
+    private _systemUtils: RaftSystemUtils | null = null;
 
     // Device callbacks
     private _callbackNewDevice: ((deviceKey: string, state: DeviceState) => void) | null = null;
     private _callbackNewDeviceAttribute: ((deviceKey: string, attrState: DeviceAttributeState) => void) | null = null;
     private _callbackNewAttributeData: ((deviceKey: string, attrState: DeviceAttributeState) => void) | null = null;
-
-    // Last time we got a state update
-    private _lastStateUpdate: number = 0;
-    private MAX_TIME_BETWEEN_STATE_UPDATES_MS: number = 60000;
-
-    // Websocket
-    private _websocket: WebSocket | null = null;
-
-    // Get instance
-    public static getInstance(): DeviceManager {
-        if (!DeviceManager._instance) {
-            DeviceManager._instance = new DeviceManager();
-        }
-        return DeviceManager._instance;
-    }
 
     public getDevicesState(): DevicesState {
         return this._devicesState;
@@ -70,19 +59,11 @@ export class DeviceManager {
     // Cached device type data
     private _cachedDeviceTypeRecs: DeviceTypeInfoRecs = {};
 
-    // Test device type data
-    private _testDeviceTypeRecs: DeviceTypeInfoTestJsonFile | null = null;
-    private _testDataGen = new TestDataGen();
+    // Cached device type previous attempt times
+    private _cachedDeviceTypePreviousAttemptTimes: { [deviceType: string]: number } = {};
 
     // Constructor
-    private constructor() {
-        // Check if test mode
-        // if (window.location.hostname === "localhost") {
-        if (process.env.TEST_DATA) {            
-            this._testDataGen.start((msg: string) => {
-                this.handleClientMsgJson(msg);
-            });
-        }
+    constructor() {
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -91,11 +72,13 @@ export class DeviceManager {
 
     async sendCommand(cmd: string): Promise<boolean> {
         try {
-            const sendCommandResponse = await fetch(this._serverAddressPrefix + this._urlPrefix + cmd);
-            if (!sendCommandResponse.ok) {
-                console.warn(`DeviceManager sendCommand response not ok ${sendCommandResponse.status}`);
+            // Get the msg handler
+            const msgHandler = this._systemUtils?.getMsgHandler();
+            if (msgHandler) {
+                const msgRslt = await msgHandler.sendRICRESTURL<RaftOKFail>(cmd);
+                return msgRslt.isOk();
             }
-            return sendCommandResponse.ok;
+            return false;
         } catch (error) {
             console.warn(`DeviceManager sendCommand error ${error}`);
             return false;
@@ -103,111 +86,13 @@ export class DeviceManager {
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    // Init
+    // Setup
     ////////////////////////////////////////////////////////////////////////////
 
-    public async init(): Promise<boolean> {
-        // Check if already initialized
-        if (this._websocket) {
-            console.warn(`DeviceManager init already initialized`)
-            return true;
-        }
-        // console.log(`DeviceManager init - first time`)
+    public async setup(systemUtils: RaftSystemUtils): Promise<boolean> {
 
-        // Conditionally load the device type records
-        if (testingDeviceTypeRecsConditionalLoadPromise) {
-            testingDeviceTypeRecsConditionalLoadPromise.then((jsonData) => {
-                this._testDeviceTypeRecs = jsonData as DeviceTypeInfoTestJsonFile;
-            });
-        }
-
-        // Websocket if not in test mode
-        if (!process.env.TEST_DATA) {
-            // Open websocket
-            const rslt = await this.connectWebSocket();
-
-            // Start timer to check for websocket reconnection
-            setInterval(async () => {
-                if (!this._websocket) {
-                    console.log(`DeviceManager init - reconnecting websocket`);
-                    await this.connectWebSocket();
-                }
-                else if ((Date.now() - this._lastStateUpdate) > this.MAX_TIME_BETWEEN_STATE_UPDATES_MS) {
-                    const inactiveTimeSecs = ((Date.now() - this._lastStateUpdate) / 1000).toFixed(1);
-                    if (this._websocket) {
-                        console.log(`DeviceManager init - closing websocket due to ${inactiveTimeSecs}s inactivity`);
-                        this._websocket.close();
-                        this._websocket = null;
-                    }
-                }
-                console.log(`websocket state ${this._websocket?.readyState}`);
-            }, 5000);
-            return rslt;
-        }
-
-        // Test mode
-        return true;
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Open websocket
-    ////////////////////////////////////////////////////////////////////////////
-
-    private async connectWebSocket(): Promise<boolean> {
-        // Open a websocket to the server
-        try {
-            console.log(`DeviceManager init location.origin ${window.location.origin} ${window.location.protocol} ${window.location.host} ${window.location.hostname} ${window.location.port} ${window.location.pathname} ${window.location.search} ${window.location.hash}`)
-            let webSocketURL = this._serverAddressPrefix;
-            if (webSocketURL.startsWith("http")) {
-                webSocketURL = webSocketURL.replace(/^http/, 'ws');
-            } else {
-                webSocketURL = window.location.origin.replace(/^http/, 'ws');
-            }
-            webSocketURL += "/devjson";
-            console.log(`DeviceManager init opening websocket ${webSocketURL}`);
-            this._websocket = new WebSocket(webSocketURL);
-            if (!this._websocket) {
-                console.error("DeviceManager init unable to create websocket");
-                return false;
-            }
-            this._websocket.binaryType = "arraybuffer";
-            this._lastStateUpdate = Date.now();
-            this._websocket.onopen = () => {
-                // Debug
-                console.log(`DeviceManager init websocket opened to ${webSocketURL}`);
-
-                // Send subscription request messages after a short delay
-                setTimeout(() => {
-
-                    // Subscribe to device messages
-                    const subscribeName = "devices";
-                    console.log(`DeviceManager init subscribing to ${subscribeName}`);
-                    if (this._websocket) {
-                        this._websocket.send(JSON.stringify({
-                            cmdName: "subscription",
-                            action: "update",
-                            pubRecs: [
-                                {name: subscribeName, msgID: subscribeName, rateHz: 0.1},
-                            ]
-                        }));
-                    }
-                }, 1000);
-            }
-            this._websocket.onmessage = (event) => {
-                this.handleClientMsgJson(event.data);
-            }
-            this._websocket.onclose = () => {
-                console.log(`DeviceManager websocket closed`);
-                this._websocket = null;
-            }
-            this._websocket.onerror = (error) => {
-                console.warn(`DeviceManager websocket error ${error}`);
-            }
-        }
-        catch (error) {
-            console.warn(`DeviceManager websocket error ${error}`);
-            return false;
-        }
+        // Save the system utils
+        this._systemUtils = systemUtils;
         return true;
     }
 
@@ -233,21 +118,16 @@ export class DeviceManager {
     // Set the friendly name for the device
     ////////////////////////////////////////////////////////////////////////////
 
-    public async setFriendlyName(friendlyName:string): Promise<void> {
-        try {
-            await fetch(this._serverAddressPrefix + this._urlPrefix + "/friendlyname/" + friendlyName);
-        } catch (error) {
-            console.log(`DeviceManager setFriendlyName ${error}`);
-        }
+    public async setFriendlyName(friendlyName: string): Promise<void> {
+        // Set using utils
+        await this._systemUtils?.setRaftName(friendlyName);
     }
 
     ////////////////////////////////////////////////////////////////////////////
     // Handle device message JSON
     ////////////////////////////////////////////////////////////////////////////
 
-    private handleClientMsgJson(jsonMsg: string) {
-
-        const removeDevicesNoLongerPresent = true;
+    public handleClientMsgJson(jsonMsg: string) {
 
         let data = JSON.parse(jsonMsg) as DeviceMsgJson;
         // console.log(`DeviceManager websocket message ${JSON.stringify(data)}`);
@@ -261,9 +141,6 @@ export class DeviceManager {
                 return;
             }
 
-            // Get a list of keys for the current devicesState
-            const deviceKeysToRemove = Object.keys(this._devicesState);
-            
             // Iterate over the devices
             Object.entries(devices).forEach(async ([devAddr, attrGroups]) => {
 
@@ -271,19 +148,16 @@ export class DeviceManager {
                 if (devAddr.startsWith("_")) {
                     return;
                 }
-                
+
                 // Device key
                 const deviceKey = getDeviceKey(busName, devAddr);
 
-                // Remove from the list of keys for the current devicesState
-                const idx = deviceKeysToRemove.indexOf(deviceKey);
-                if (idx >= 0) {
-                    deviceKeysToRemove.splice(idx, 1);
-                }
+                // Update the last update time
+                this._deviceLastUpdateTime[deviceKey] = Date.now();
 
                 // Check if a device state already exists
-                if (!(deviceKey in this._devicesState)) {
-                    
+                if (!(deviceKey in this._devicesState) || (this._devicesState[deviceKey].deviceTypeInfo === undefined)) {
+
                     let deviceTypeName = "";
                     if (attrGroups && typeof attrGroups === 'object' && "_t" in attrGroups && typeof attrGroups._t === "string") {
                         deviceTypeName = attrGroups._t || "";
@@ -292,27 +166,42 @@ export class DeviceManager {
                         return;
                     }
 
-                    // Create device record
-                    this._devicesState[deviceKey] = {
-                        deviceTypeInfo: await this.getDeviceTypeInfo(busName, devAddr, deviceTypeName),
-                        deviceTimeline: {
-                            timestampsUs: [],
-                            lastReportTimestampUs: 0,
-                            reportTimestampOffsetUs: 0
-                        },
-                        deviceAttributes: {},
-                        deviceIsNew: true,
-                        stateChanged: false,
-                        isOnline: true
-                    };
+                    // Get the device type info
+                    const deviceTypeInfo = await this.getDeviceTypeInfo(busName, devAddr, deviceTypeName);
+
+                    // Check if device record exists
+                    if (deviceKey in this._devicesState) {
+                        if (deviceTypeInfo !== undefined) {
+                            this._devicesState[deviceKey].deviceTypeInfo = deviceTypeInfo;
+                        }
+                    } else {
+                        // Create device record - device type info may be undefined
+                        this._devicesState[deviceKey] = {
+                            deviceTypeInfo: deviceTypeInfo,
+                            deviceTimeline: {
+                                timestampsUs: [],
+                                lastReportTimestampUs: 0,
+                                reportTimestampOffsetUs: 0
+                            },
+                            deviceAttributes: {},
+                            deviceIsNew: true,
+                            stateChanged: false,
+                            isOnline: true
+                        };
+                    }
                 }
 
                 // Get device state
                 const deviceState = this._devicesState[deviceKey];
-                
+
                 // Check for online/offline state information
                 if (attrGroups && typeof attrGroups === "object" && "_o" in attrGroups) {
                     deviceState.isOnline = ((attrGroups._o === true) || (attrGroups._o === "1") || (attrGroups._o === 1));
+                }
+
+                // Check if device type info is available
+                if (!deviceState.deviceTypeInfo) {
+                    return;
                 }
 
                 // Iterate attribute groups
@@ -324,7 +213,7 @@ export class DeviceManager {
                     }
 
                     // Check the device type info
-                    if (!deviceState.deviceTypeInfo.resp) {
+                    if (!deviceState.deviceTypeInfo!.resp) {
                         return;
                     }
 
@@ -338,16 +227,16 @@ export class DeviceManager {
                     let msgBufIdx = 0;
 
                     // Iterate over attributes in the group
-                    const pollRespMetadata  = deviceState.deviceTypeInfo.resp!;
+                    const pollRespMetadata = deviceState.deviceTypeInfo!.resp!;
 
                     // Loop
                     while (msgBufIdx < msgBytes.length) {
 
                         const curTimelineLen = deviceState.deviceTimeline.timestampsUs.length;
-                        const newMsgBufIdx = this._attributeHandler.processMsgAttrGroup(msgBuffer, msgBufIdx, 
-                                                deviceState.deviceTimeline, pollRespMetadata, 
-                                                deviceState.deviceAttributes,
-                                                this._maxDatapointsToStore);
+                        const newMsgBufIdx = this._attributeHandler.processMsgAttrGroup(msgBuffer, msgBufIdx,
+                            deviceState.deviceTimeline, pollRespMetadata,
+                            deviceState.deviceAttributes,
+                            this._maxDatapointsToStore);
                         if (newMsgBufIdx < 0)
                             break;
                         msgBufIdx = newMsgBufIdx;
@@ -357,22 +246,20 @@ export class DeviceManager {
                     }
                 });
             });
-
-            // Remove devices no longer present
-            if (removeDevicesNoLongerPresent) {
-                deviceKeysToRemove.forEach((deviceKey) => {
-                    delete this._devicesState[deviceKey];
-                });
-            }
-
         });
 
-        // Update the last state update time
-        this._lastStateUpdate = Date.now();
-
+        // Check for devices that have not been updated for a while
+        if (this._removeDevicesFlag) {
+            const nowTime = Date.now();
+            Object.entries(this._deviceLastUpdateTime).forEach(([deviceKey, lastUpdateTime]) => {
+                if ((nowTime - lastUpdateTime) > this._removeDevicesTimeMs) {
+                    delete this._devicesState[deviceKey];
+                }
+            });
+        }
+        
         // Process the callback
         this.processStateCallback();
-
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -383,7 +270,7 @@ export class DeviceManager {
 
         // Iterate over the devices
         Object.entries(this._devicesState).forEach(([deviceKey, deviceState]) => {
-            
+
             // Check if device record is new
             if (deviceState.deviceIsNew) {
                 if (this._callbackNewDevice) {
@@ -423,46 +310,40 @@ export class DeviceManager {
     // Get device type info
     ////////////////////////////////////////////////////////////////////////////
 
-    private async getDeviceTypeInfo(busName: string, _devAddr: string, deviceType: string): Promise<DeviceTypeInfo> {
-
-        const emptyRec = {
-            "name": "Unknown",
-            "desc": "Unknown",
-            "manu": "Unknown",
-            "type": "Unknown"
-        };
-        // Ensure that this._testDeviceTypeRecs and devTypes[deviceType] are properly initialized
-        if (process.env.TEST_DATA) {
-            if (this._testDeviceTypeRecs && this._testDeviceTypeRecs.devTypes[deviceType]) {
-                return this._testDeviceTypeRecs.devTypes[deviceType].devInfoJson;
-            } else {
-                // Handle the case where the necessary data isn't available
-                console.error("Device type info not available for:", deviceType);
-                return emptyRec;
-            }
-        }
+    private async getDeviceTypeInfo(busName: string, _devAddr: string, deviceType: string): Promise<DeviceTypeInfo | undefined> {
 
         // Check if already in the cache
         if (deviceType in this._cachedDeviceTypeRecs) {
             return this._cachedDeviceTypeRecs[deviceType];
         }
-        
+
+        // Check if we have tried to get device info previously (and failed presumably since it isn't in the cache)
+        if (deviceType in this._cachedDeviceTypePreviousAttemptTimes) {
+            // Check if we should retry
+            if ((Date.now() - this._cachedDeviceTypePreviousAttemptTimes[deviceType]) < this._minTimeBetweenDeviceTypeInfoRetrievalMs) {
+                return undefined;
+            }
+        }
+        this._cachedDeviceTypePreviousAttemptTimes[deviceType] = Date.now();
+
         // Get the device type info from the server
         try {
-            const getDevTypeInfoResponse = await fetch(this._serverAddressPrefix + this._urlPrefix + "/devman/typeinfo?bus=" + busName + "&type=" + deviceType);
-            if (!getDevTypeInfoResponse.ok) {
-                console.error(`DeviceManager getDeviceTypeInfo response not ok ${getDevTypeInfoResponse.status}`);
-                return emptyRec;
+            // Form the request
+            const cmd = "devman/typeinfo?bus=" + busName + "&type=" + deviceType;
+
+            // Get the msg handler
+            const msgHandler = this._systemUtils?.getMsgHandler();
+            if (msgHandler) {
+                const msgRslt = await msgHandler.sendRICRESTURL<RaftDevTypeInfoResponse>(cmd);
+                if (msgRslt.rslt === "ok") {
+                    this._cachedDeviceTypeRecs[deviceType] = msgRslt.devinfo;
+                    return msgRslt.devinfo
+                }
             }
-            const devTypeInfo = await getDevTypeInfoResponse.json();
-            if ("devinfo" in devTypeInfo) {
-                this._cachedDeviceTypeRecs[deviceType] = devTypeInfo.devinfo;
-                return devTypeInfo.devinfo;
-            }
-            return emptyRec;
+            return undefined;
         } catch (error) {
             console.error(`DeviceManager getDeviceTypeInfo error ${error}`);
-            return emptyRec;
+            return undefined;
         }
     }
 
@@ -470,7 +351,7 @@ export class DeviceManager {
     // Send action to device
     ////////////////////////////////////////////////////////////////////////////
 
-    public sendAction(deviceKey: string, action: DeviceTypeAction, data: DataType[]): void {
+    public async sendAction(deviceKey: string, action: DeviceTypeAction, data: DataType[]): Promise<boolean> {
         // console.log(`DeviceManager sendAction ${deviceKey} action name ${action.n} value ${value} prefix ${action.w}`);
 
         // Form the write bytes
@@ -487,25 +368,31 @@ export class DeviceManager {
         const devAddr = deviceKey.split("_")[1]
 
         // Send the action to the server
-        const url = this._serverAddressPrefix + this._urlPrefix + "/devman/cmdraw?bus=" + devBus + "&addr=" + devAddr + "&hexWr=" + writeHexStr;
+        const cmd = "devman/cmdraw?bus=" + devBus + "&addr=" + devAddr + "&hexWr=" + writeHexStr;
 
-        console.log(`DeviceManager deviceKey ${deviceKey} action name ${action.n} value ${data} prefix ${action.w} sendAction ${url}`);
-        fetch(url)
-            .then(response => {
-                if (!response.ok) {
-                    console.error(`DeviceManager sendAction response not ok ${response.status}`);
-                }
-            })
-            .catch(error => {
-                console.error(`DeviceManager sendAction error ${error}`);
-            });
+        console.log(`DeviceManager deviceKey ${deviceKey} action name ${action.n} value ${data} prefix ${action.w} sendAction ${cmd}`);
+
+        // Send the command
+        try {
+
+            // Get the msg handler
+            const msgHandler = this._systemUtils?.getMsgHandler();
+            if (msgHandler) {
+                const msgRslt = await msgHandler.sendRICRESTURL<RaftOKFail>(cmd);
+                return msgRslt.isOk();
+            }
+            return false;
+        } catch (error) {
+            console.warn(`DeviceManager sendAction error ${error}`);
+            return false;
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////
     // Send a compound action to the device
     ////////////////////////////////////////////////////////////////////////////
 
-    public sendCompoundAction(deviceKey: string, action: DeviceTypeAction, data: DataType[][]): void {
+    public async sendCompoundAction(deviceKey: string, action: DeviceTypeAction, data: DataType[][]): Promise<boolean> {
         // console.log(`DeviceManager sendAction ${deviceKey} action name ${action.n} value ${value} prefix ${action.w}`);
 
         // Check if all data to be sent at once
@@ -517,19 +404,25 @@ export class DeviceManager {
             }
 
             // Use sendAction to send this
-            this.sendAction(deviceKey, action, dataToWrite);
+            return await this.sendAction(deviceKey, action, dataToWrite);
         } else {
             // Iterate over the data
+            let allOk = true;
             for (let dataIdx = 0; dataIdx < data.length; dataIdx++) {
 
                 // Create the data to write by prepending the index to the data for this index
                 let dataToWrite = [dataIdx as DataType].concat(data[dataIdx]);
 
                 // Use sendAction to send this
-                this.sendAction(deviceKey, action, dataToWrite);
+                allOk = allOk && await this.sendAction(deviceKey, action, dataToWrite);
             }
         }
+        return false;
     }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Convert hex to bytes
+    ////////////////////////////////////////////////////////////////////////////
 
     private hexToBytes(hex: string): Uint8Array {
         const bytes = new Uint8Array(hex.length / 2);

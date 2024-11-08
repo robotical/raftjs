@@ -1,3 +1,4 @@
+import RaftDeviceMgrIF from "./RaftDeviceMgrIF";
 import RaftSystemUtils from "./RaftSystemUtils";
 import { RaftEventFn } from "./RaftTypes";
 
@@ -8,6 +9,7 @@ export type RaftRxOtherMsgType = (payload: Uint8Array, _frameTimeMs: number) => 
 export interface ConnectorOptions {
   wsSuffix?: string;
   connTimeoutMs?: number;
+  bleConnItvlMs?: number;
 }
 
 export interface RaftSystemType {
@@ -20,6 +22,7 @@ export interface RaftSystemType {
   subscribeForUpdates: RaftSubscribeForUpdatesCBType | null;
   stateIsInvalid: RaftStateIsInvalidCBType | null;
   rxOtherMsgType: RaftRxOtherMsgType | null;
+  deviceMgrIF: RaftDeviceMgrIF;
 }
 
 export type RaftGetSystemTypeCBType = (systemUtils: RaftSystemUtils) => Promise<RaftSystemType | null>;
