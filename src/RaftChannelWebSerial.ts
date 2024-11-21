@@ -13,6 +13,7 @@ import RaftMsgHandler from "./RaftMsgHandler";
 import RaftLog from "./RaftLog";
 import { RaftConnEvent, RaftConnEventFn } from "./RaftConnEvents";
 import { ConnectorOptions } from "./RaftSystemType";
+import { TextDecoder } from 'text-encoding';
 
 type TWebParityType = 'none' | 'even' | 'odd';
 type TWebFlowControlType = 'none' | 'hardware';
@@ -135,7 +136,7 @@ export default class RaftChannelWebSerial implements RaftChannel {
 
   // Connect to a device
   async connect(locator: string | object, _connectorOptions: ConnectorOptions): Promise<boolean> {
-
+    console.log("_connectorOptions", _connectorOptions);
     // Debug
     RaftLog.debug("RaftChannelWebSerial.connect " + locator.toString());
 

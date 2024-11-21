@@ -41,10 +41,10 @@ export interface RaftSubscription {
 
 export class RaftFriendlyName {
   friendlyName = '';
-  friendlyNameIsSet?= false;
-  req?= '';
-  rslt?= 'commsFail';
-  validMs?= 0;
+  friendlyNameIsSet? = false;
+  req? = '';
+  rslt? = 'commsFail';
+  validMs? = 0;
 }
 
 export class RaftSystemInfo {
@@ -53,16 +53,16 @@ export class RaftSystemInfo {
   SystemVersion = '0.0.0';
   RicHwRevNo?: string | number = 0;
   HwRev?: string | number = "";
-  MAC?= "";
-  SerialNo?= "";
-  validMs?= 0;
+  MAC? = "";
+  SerialNo? = "";
+  validMs? = 0;
   Friendly? = "";
 }
 
 export class RaftCalibInfo {
   rslt = '';
   calDone = 0;
-  validMs?= 0;
+  validMs? = 0;
 }
 
 export class RaftOKFail {
@@ -164,11 +164,11 @@ export class RaftFileList {
 }
 
 export class RaftSysModInfoBLEMan {
-  req?= '';
+  req? = '';
   rslt = 'ok';
   isConn = false;
   isAdv = false;
-  advName?= "";
+  advName? = "";
   BLEMAC = "";
   rssi = -200;
   rxM = 0;
@@ -179,17 +179,16 @@ export class RaftSysModInfoBLEMan {
   txBPS = 0.0;
   txErr = 0;
   txErrPS = 0;
-  tM?= 0;
-  tB?= 0;
-  tBPS?= 0.0;
-  tSeqErrs?= 0;
-  tDatErrs?= 0;
+  tM? = 0;
+  tB? = 0;
+  tBPS? = 0.0;
+  tSeqErrs? = 0;
+  tDatErrs? = 0;
 }
 
 export type RaftProgressCBType = (received: number, total: number) => void;
 
-export class RaftFileDownloadResult
-{
+export class RaftFileDownloadResult {
   fileData: Uint8Array | null = null;
   downloadedOk = false;
   constructor(buffer: Uint8Array | undefined = undefined) {
@@ -247,3 +246,36 @@ export type PystatusMsgType = {
   running: string;
   rslt: string;
 };
+
+// Phone BLE 
+export class DiscoveredRIC {
+  _localName = '';
+  _name = '';
+  _id = '';
+  _rssi = -150;
+  constructor(localName: string, name: string, id: string, rssi: number) {
+    this._localName = localName;
+    this._name = name;
+    this._id = id;
+    this._rssi = rssi;
+  }
+  get name(): string {
+    if (this._localName !== null && this._localName.length > 0) {
+      return this._localName;
+    }
+    if (this._name !== null) {
+      return this._name;
+    }
+    return 'Un-named';
+  }
+  get id(): string {
+    if (this._id !== null) return this._id;
+    return '';
+  }
+  get rssi(): number {
+    if (this._rssi !== null) return this._rssi;
+    return -100;
+  }
+}
+
+export type DiscoveredRICsCB = (discoveredRICs: DiscoveredRIC[]) => void;

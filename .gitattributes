@@ -1,27 +1,11 @@
-* text=auto eol=lf
+# Set the default behavior, in case users don't have core.autocrlf set.
+* text=auto
 
-# Definitively text files 
-*.txt text
-*.c text
-*.cpp text
-*.h text
-*.js text
-*.html text
-*.trj text
-*.sh text
-*.py text
-*.mk text
-*.projbuild text
-*.log text
-*.md text
+# Declare files that will always have LF line endings on checkout.
+* text eol=lf
 
-# Ensure those won't be messed up with
+# Denote all files that are truly binary and should not be modified.
+*.png binary
 *.jpg binary
-*.raw binary
-*.data binary
-*.sfw binary
-*.bin binary
-*.exe binary
-*.dll binary
-*.lib binary
-*.a binary
+*.gif binary
+*.pdf binary

@@ -572,7 +572,7 @@ export default class RaftMsgHandler {
     const resolve = this._msgTrackInfos[msgNum].resolve;
     if (resolve) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      RaftLog.debug(`_msgCompleted msgNum ${msgNum} result ${msgRsltCode.toString()} ${JSON.stringify(msgRsltObj)}`);
+      RaftLog.verbose(`_msgCompleted msgNum ${msgNum} result ${msgRsltCode.toString()} ${JSON.stringify(msgRsltObj)}`);
       (resolve as ((arg: object | null) => void))(msgRsltObj);
     }
     // } else {
@@ -617,7 +617,7 @@ export default class RaftMsgHandler {
         if ((this._msgTrackInfos[checkIdx].retryCount === 0) || (Date.now() > this._msgTrackInfos[checkIdx].msgSentMs + (msgTimeoutMs * (this._msgTrackInfos[checkIdx].retryCount)))) {
 
           // Debug
-          RaftLog.debug(`msgTrackTimer msgNum ${checkIdx} ${this._msgTrackInfos[checkIdx].retryCount === 0 ? 'first send' : 'timeout - retrying'} ${RaftUtils.bufferToHex(this._msgTrackInfos[checkIdx].msgFrame)}`);
+          RaftLog.verbose(`msgTrackTimer msgNum ${checkIdx} ${this._msgTrackInfos[checkIdx].retryCount === 0 ? 'first send' : 'timeout - retrying'} ${RaftUtils.bufferToHex(this._msgTrackInfos[checkIdx].msgFrame)}`);
           // RaftLog.verbose(`msgTrackTimer msg ${RaftUtils.bufferToHex(this._msgTrackInfos[i].msgFrame)}`);
     
           // Handle timeout (or first send)

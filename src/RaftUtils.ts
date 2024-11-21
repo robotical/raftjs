@@ -461,6 +461,7 @@ export default class RaftUtils {
       return patch1 > patch2;
     } catch (e) {
       // one of the two versions is invalid, return true
+      RaftLog.warn(`isVersionGreater - invalid version ${v1} or ${v2} ${e}`);
       return true;
     }
   }
@@ -470,6 +471,7 @@ export default class RaftUtils {
       return v1 === v2;
     } catch (e) {
       // one of the two versions is invalid, return false
+      RaftLog.error(`isVersionEqual - invalid version ${v1} or ${v2} ${e}`);
       return false;
     }
   }

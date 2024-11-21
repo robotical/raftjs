@@ -303,7 +303,7 @@ export default class RaftMiniHDLC {
         if (this._checkCRC()) {
           const frameElapsedMs = Date.now() - this.frameStartTimeMs;
           if (frameElapsedMs > 0) {
-            RaftLog.debug('RaftMiniHDLC::frameRx ' + this.rxBuffer.length + 
+            RaftLog.verbose('RaftMiniHDLC::frameRx ' + this.rxBuffer.length + 
                   'bytes, elapsed ' + frameElapsedMs + 
                   'ms, rate ' + (this.rxBuffer.length * 1000 / frameElapsedMs).toFixed(0) + ' bytes/sec');
           }
