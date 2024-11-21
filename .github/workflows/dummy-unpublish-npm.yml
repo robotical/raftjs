@@ -15,6 +15,9 @@ jobs:
         uses: 'actions/checkout@v2'
         with:
           ref: ${{ github.ref }}
+      - run: npm whoami
+        env:
+            NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - run: npm unpublish @robdobsn/raftjs --force
         env:
             NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} 
