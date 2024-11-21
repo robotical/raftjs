@@ -7,7 +7,6 @@
 //
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import { DataType } from "python-struct";
 import { DeviceTypeAction } from "./RaftDeviceInfo";
 import { DeviceAttributeState, DevicesState, DeviceState } from "./RaftDeviceStates";
 
@@ -23,6 +22,6 @@ export default interface RaftDeviceMgrIF {
     onNewAttributeData(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void;
 
     // Send action to device
-    sendAction(deviceKey: string, action: DeviceTypeAction, data: DataType[]): void;
-    sendCompoundAction(deviceKey: string, action: DeviceTypeAction, data: DataType[][]): void;
+    sendAction(deviceKey: string, action: DeviceTypeAction, data: number[]): void;
+    sendCompoundAction(deviceKey: string, action: DeviceTypeAction, data: number[][]): void;
 }

@@ -16,12 +16,12 @@ import { ConnectorOptions } from "./RaftSystemType";
 import RaftUtils from "./RaftUtils";
 
 export default class RaftChannelBLE implements RaftChannel {
-  // BLE UUIDS
-  public static RICServiceUUID = "aa76677e-9cfd-4626-a510-0d305be57c8d";
-  public static CogServiceUUID = "da903f65-d5c2-4f4d-a065-d1aade7af874";
-  public static CmdUUID = "aa76677e-9cfd-4626-a510-0d305be57c8e";
-  public static RespUUID = "aa76677e-9cfd-4626-a510-0d305be57c8f";
 
+  // Default command and response UUIDs
+  _cmdUUID = 'aa76677e-9cfd-4626-a510-0d305be57c8e';
+  _respUUID = 'aa76677e-9cfd-4626-a510-0d305be57c8f';
+  _serviceUUIDs = ['aa76677e-9cfd-4626-a510-0d305be57c8d', 'da903f65-d5c2-4f4d-a065-d1aade7af874'];
+  
   // Device and characteristics
   private _bleDevice: BluetoothDevice | null = null;
   private _characteristicTx: BluetoothRemoteGATTCharacteristic | null = null;
@@ -143,7 +143,7 @@ export default class RaftChannelBLE implements RaftChannel {
             try {
               let service: BluetoothRemoteGATTService | null = null;
               // iterate over known services
-              for (const serviceUUID of [RaftChannelBLE.CogServiceUUID, RaftChannelBLE.RICServiceUUID]) {
+              for (const serviceUUID of this._serviceUUIDs) {
                 try {
                   service = await this._bleDevice.gatt.getPrimaryService(serviceUUID);
                   if (service) {
@@ -169,13 +169,13 @@ export default class RaftChannelBLE implements RaftChannel {
               try {
                 // Get Tx and Rx characteristics
                 this._characteristicTx = await service.getCharacteristic(
-                  RaftChannelBLE.CmdUUID
+                  this._cmdUUID
                 );
                 RaftLog.debug(
                   `RaftChannelBLE.connect - found char ${this._characteristicTx.uuid}`
                 );
                 this._characteristicRx = await service.getCharacteristic(
-                  RaftChannelBLE.RespUUID
+                  this._respUUID
                 );
                 RaftLog.debug(
                   `RaftChannelBLE.connect - found char ${this._characteristicRx.uuid}`

@@ -11,11 +11,10 @@ import { DeviceAttributeState, DevicesState, DeviceState, getDeviceKey } from ".
 import { DeviceMsgJson } from "./RaftDeviceMsg";
 import { RaftOKFail } from './RaftTypes';
 import { DeviceTypeInfo, DeviceTypeAction, DeviceTypeInfoRecs, RaftDevTypeInfoResponse } from "./RaftDeviceInfo";
-import struct, { DataType } from 'python-struct';
 import AttributeHandler from "./RaftAttributeHandler";
 import RaftSystemUtils from "./RaftSystemUtils";
 import RaftDeviceMgrIF from "./RaftDeviceMgrIF";
-import { Buffer } from 'buffer';
+import { structPack } from "./RaftStruct";
 
 export class DeviceManager implements RaftDeviceMgrIF{
 
@@ -130,7 +129,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
 
     public handleClientMsgJson(jsonMsg: string) {
 
-        let data = JSON.parse(jsonMsg) as DeviceMsgJson;
+        const data = JSON.parse(jsonMsg) as DeviceMsgJson;
         // console.log(`DeviceManager websocket message ${JSON.stringify(data)}`);
 
         // Iterate over the buses
@@ -221,9 +220,6 @@ export class DeviceManager implements RaftDeviceMgrIF{
                     // Convert the hex string to an arraybuffer by converting each pair of hex chars to a byte
                     const msgBytes = this.hexToBytes(msgHexStr);
 
-                    // Convert to a Buffer
-                    const msgBuffer = Buffer.from(msgBytes);
-
                     // Work through the message which may contain multiple data instances
                     let msgBufIdx = 0;
 
@@ -234,7 +230,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
                     while (msgBufIdx < msgBytes.length) {
 
                         const curTimelineLen = deviceState.deviceTimeline.timestampsUs.length;
-                        const newMsgBufIdx = this._attributeHandler.processMsgAttrGroup(msgBuffer, msgBufIdx,
+                        const newMsgBufIdx = this._attributeHandler.processMsgAttrGroup(msgBytes, msgBufIdx,
                             deviceState.deviceTimeline, pollRespMetadata,
                             deviceState.deviceAttributes,
                             this._maxDatapointsToStore);
@@ -284,7 +280,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
             }
 
             // Iterate over the attributes
-            Object.entries(deviceState.deviceAttributes).forEach(([_attrKey, attrState]) => {
+            Object.entries(deviceState.deviceAttributes).forEach(([, attrState]): void => {
                 if (attrState.newAttribute) {
                     if (this._callbackNewDeviceAttribute) {
                         this._callbackNewDeviceAttribute(
@@ -352,14 +348,20 @@ export class DeviceManager implements RaftDeviceMgrIF{
     // Send action to device
     ////////////////////////////////////////////////////////////////////////////
 
-    public async sendAction(deviceKey: string, action: DeviceTypeAction, data: DataType[]): Promise<boolean> {
+    private toHex(data: Uint8Array): string {
+        return Array.from(data)
+            .map(byte => byte.toString(16).padStart(2, "0"))
+            .join("");
+    }
+
+    public async sendAction(deviceKey: string, action: DeviceTypeAction, data: number[]): Promise<boolean> {
         // console.log(`DeviceManager sendAction ${deviceKey} action name ${action.n} value ${value} prefix ${action.w}`);
 
         // Form the write bytes
-        let writeBytes = action.t ? struct.pack(action.t, data) : Buffer.from([]);
+        const writeBytes = action.t ? structPack(action.t, data) : new Uint8Array(0);
 
         // Convert to hex string
-        let writeHexStr = Buffer.from(writeBytes).toString('hex');
+        let writeHexStr = this.toHex(writeBytes);
 
         // Add prefix
         writeHexStr = action.w + writeHexStr;
@@ -393,13 +395,13 @@ export class DeviceManager implements RaftDeviceMgrIF{
     // Send a compound action to the device
     ////////////////////////////////////////////////////////////////////////////
 
-    public async sendCompoundAction(deviceKey: string, action: DeviceTypeAction, data: DataType[][]): Promise<boolean> {
+    public async sendCompoundAction(deviceKey: string, action: DeviceTypeAction, data: number[][]): Promise<boolean> {
         // console.log(`DeviceManager sendAction ${deviceKey} action name ${action.n} value ${value} prefix ${action.w}`);
 
         // Check if all data to be sent at once
         if (action.concat) {
             // Form a single list by flattening data
-            let dataToWrite: DataType[] = [];
+            let dataToWrite: number[] = [];
             for (let dataIdx = 0; dataIdx < data.length; dataIdx++) {
                 dataToWrite = dataToWrite.concat(data[dataIdx]);
             }
@@ -412,7 +414,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
             for (let dataIdx = 0; dataIdx < data.length; dataIdx++) {
 
                 // Create the data to write by prepending the index to the data for this index
-                let dataToWrite = [dataIdx as DataType].concat(data[dataIdx]);
+                const dataToWrite = [dataIdx as number].concat(data[dataIdx]);
 
                 // Use sendAction to send this
                 allOk = allOk && await this.sendAction(deviceKey, action, dataToWrite);
@@ -432,5 +434,4 @@ export class DeviceManager implements RaftDeviceMgrIF{
         }
         return bytes;
     }
-
 }

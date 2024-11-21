@@ -16,6 +16,9 @@ export interface ConnectorOptions {
 export interface RaftSystemType {
   nameForDialogs: string;
   defaultWiFiHostname: string;
+  BLEServiceUUIDs: string[];
+  BLECmdUUID: string;
+  BLERespUUID: string;
   firmwareDestName: string;
   normalFileDestName: string;
   connectorOptions: ConnectorOptions;

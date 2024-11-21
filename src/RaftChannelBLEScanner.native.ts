@@ -1,11 +1,10 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// RICBLEScanner
-// Communications Connector for RIC V2
+// RaftChannelBLEScanner.native.ts
+// Communications Connector for RaftJS
 //
-// RIC V2
-// Rob Dobson 2022
-// (C) Robotical 2022
+// Rob Dobson 2022-24
+// (C) Robotical 2022-24
 //
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -14,20 +13,20 @@ import {
   Device,
   BleError,
 } from 'react-native-ble-plx';
-import { DiscoveredRIC } from './RaftTypes';
+import { DiscoveredDevice } from './RaftTypes';
 import RaftLog from './RaftLog';
 import { RaftConnEvent, RaftConnEventFn } from './RaftConnEvents';
 
-export default class RICBLEScanner {
+export default class RaftChannelBLEScanner {
 
   // BleManager
   _bleManager: BleManager;
 
   // Services to scan for
-  _uuidsOfServicesToScanFor: Array<string> = [];
+  _defaultUUIDsOfServicesToScanFor: Array<string> = [];
 
   // Scanned devices found on BLE
-  _discoveredRICs: DiscoveredRIC[] = [];
+  _discoveredDevices: DiscoveredDevice[] = [];
   static _scanInProgress = false;
 
   // Time to scan for
@@ -38,40 +37,34 @@ export default class RICBLEScanner {
 
   constructor(bleManager: BleManager, uuidsOfServicesToScanFor: Array<string>, eventCallback: RaftConnEventFn) {
     this._bleManager = bleManager;
-    this._uuidsOfServicesToScanFor = uuidsOfServicesToScanFor;
+    this._defaultUUIDsOfServicesToScanFor = uuidsOfServicesToScanFor;
     this._eventCallback = eventCallback;
   }
 
-  // Get discovered RICs
-  getDiscoveredRICs(): DiscoveredRIC[] {
-    return this._discoveredRICs;
+  // Get discovered Devices
+  getDiscoveredDevices(): DiscoveredDevice[] {
+    return this._discoveredDevices;
   }
 
   // Check is a scan is in progress
   isScanInProgress(): boolean {
-    return RICBLEScanner._scanInProgress;
+    return RaftChannelBLEScanner._scanInProgress;
   }
 
-  async scanningStart(uuid?: string): Promise<boolean> {
-    let uuidsOfServicesToScanFor: string[] = [];
-    if (uuid) {
-      uuidsOfServicesToScanFor.push(uuid);
-    } else {
-      uuidsOfServicesToScanFor = this._uuidsOfServicesToScanFor;
-    }
+  async scanningStart(uuids: string[]): Promise<boolean> {
     // Handle discovery
     RaftLog.debug('Starting Scanning...');
 
     // Clear list
-    this._discoveredRICs = [];
+    this._discoveredDevices = [];
 
     // Disconnect any connections
-    RICBLEScanner._scanInProgress = true;
+    RaftChannelBLEScanner._scanInProgress = true;
 
     // Start scan
     try {
       this._bleManager.startDeviceScan(
-        uuidsOfServicesToScanFor,
+        uuids.length > 0 ? uuids : this._defaultUUIDsOfServicesToScanFor,
         { allowDuplicates: true },
         (error: BleError | null, device: Device | null) => {
           // RaftLog.debug(`discoveryFoundCB error ${error}`);
@@ -93,15 +86,15 @@ export default class RICBLEScanner {
     RaftLog.debug('scanningStop');
 
     // Emit finished if we were scanning
-    RaftLog.debug(`IS SCANNING IN PROGRESS: ${RICBLEScanner._scanInProgress}`);
-    if (RICBLEScanner._scanInProgress) {
+    RaftLog.debug(`IS SCANNING IN PROGRESS: ${RaftChannelBLEScanner._scanInProgress}`);
+    if (RaftChannelBLEScanner._scanInProgress) {
       RaftLog.debug(`sending BLE_SCANNING_FINISHED event`);
-      this._eventCallback(RaftConnEvent.BLE_SCANNING_FINISHED, { discoveredRICs: this._discoveredRICs });
+      this._eventCallback(RaftConnEvent.BLE_SCANNING_FINISHED, { discoveredDevices: this._discoveredDevices });
     }
 
     // Cancel scanning
     this._bleManager.stopDeviceScan();
-    RICBLEScanner._scanInProgress = false;
+    RaftChannelBLEScanner._scanInProgress = false;
   }
 
   // Callback from BLE-PLX library on device discovered
@@ -113,28 +106,28 @@ export default class RICBLEScanner {
       //RaftLog.warn(`⚠️ Scan Error >> ${error.toString()}`);
       RaftLog.warn(`⚠️ Scan Error >> ${JSON.stringify(error)}`);
       // Event if we were scanning
-      if (RICBLEScanner._scanInProgress) {
+      if (RaftChannelBLEScanner._scanInProgress) {
         this._eventCallback(RaftConnEvent.BLE_SCANNING_FINISHED, {
-          discoveredRICs: this._discoveredRICs,
+          discoveredDevices: this._discoveredDevices,
         });
-        RICBLEScanner._scanInProgress = false;
+        RaftChannelBLEScanner._scanInProgress = false;
       }
       return;
     }
 
     // See if already in the list
-    const ricAlreadyFound = this._discoveredRICs.find(
+    const deviceAlreadyFound = this._discoveredDevices.find(
       item => item.id === scannedDevice!.id,
     );
 
     RaftLog.debug(`✅ Scanning... >> ${scannedDevice}`);
 
-    if (ricAlreadyFound) {
+    if (deviceAlreadyFound) {
       // update the rssi value if it's not 127
       if (scannedDevice!.rssi !== null && scannedDevice!.rssi !== 127) {
-        ricAlreadyFound._rssi = scannedDevice!.rssi;
+        deviceAlreadyFound._rssi = scannedDevice!.rssi;
         this._eventCallback(RaftConnEvent.BLE_DEVICE_FOUND, {
-          discoveredRIC: ricAlreadyFound
+          discoveredDevice: deviceAlreadyFound
         });
       }
       return;
@@ -147,19 +140,19 @@ export default class RICBLEScanner {
         // will have all the needed info
         return;
       }
-      const newDiscoveredRic = new DiscoveredRIC(
+      const newDiscoveredDevice = new DiscoveredDevice(
         scannedDevice.localName !== null ? scannedDevice.localName : '',
         scannedDevice.name !== null ? scannedDevice.name : '',
         scannedDevice.id,
         scannedDevice.rssi !== null ? scannedDevice.rssi : -150,
       );
-      this._discoveredRICs.push(newDiscoveredRic);
+      this._discoveredDevices.push(newDiscoveredDevice);
       // send the newly found ric to the state so it can pop-up on the front-end
       this._eventCallback(RaftConnEvent.BLE_DEVICE_FOUND, {
-        discoveredRIC: newDiscoveredRic
+        discoveredDevice: newDiscoveredDevice
       });
     }
-    RaftLog.debug(`🤖 Scanned RICs >> ${this._discoveredRICs}`);
+    RaftLog.debug(`🤖 Scanned RICs >> ${this._discoveredDevices}`);
   }
 
   // Time-limit on device scanning
@@ -169,22 +162,22 @@ export default class RICBLEScanner {
       this._bleManager.stopDeviceScan();
 
       // Check we were scanning
-      if (RICBLEScanner._scanInProgress) {
+      if (RaftChannelBLEScanner._scanInProgress) {
         // Sort by signal strength
-        // this._discoveredRICs.sort((a, b) => {
+        // this._discoveredDevices.sort((a, b) => {
         //   return b!.rssi! - a!.rssi!;
         // });
 
         // Debug
-        const msg = `🤖 ${this._discoveredRICs.length} RICs found! Choose one to connect`;
+        const msg = `🤖 ${this._discoveredDevices.length} RICs found! Choose one to connect`;
         RaftLog.debug(msg);
 
         // Finished event
         this._eventCallback(RaftConnEvent.BLE_SCANNING_FINISHED, {
-          discoveredRICs: this._discoveredRICs,
+          discoveredDevices: this._discoveredDevices,
         });
       }
-      RICBLEScanner._scanInProgress = false;
+      RaftChannelBLEScanner._scanInProgress = false;
     }, timeLimitMs);
   }
 }

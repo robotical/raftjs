@@ -10,7 +10,7 @@
 import CustomAttrHandler from "./RaftCustomAttrHandler";
 import { DeviceTypeAttribute, DeviceTypePollRespMetadata, decodeAttrUnitsEncoding, isAttrTypeSigned } from "./RaftDeviceInfo";
 import { DeviceAttributesState, DeviceTimeline } from "./RaftDeviceStates";
-import struct from 'python-struct';
+import { structSizeOf, structUnpack } from "./RaftStruct";
 
 export default class AttributeHandler {
 
@@ -22,17 +22,17 @@ export default class AttributeHandler {
     private POLL_RESULT_WRAP_VALUE = this.POLL_RESULT_TIMESTAMP_SIZE === 2 ? 65536 : 4294967296;
     private POLL_RESULT_RESOLUTION_US = 1000;
     
-    public processMsgAttrGroup(msgBuffer: Buffer, msgBufIdx: number, deviceTimeline: DeviceTimeline, pollRespMetadata: DeviceTypePollRespMetadata, 
+    public processMsgAttrGroup(msgBuffer: Uint8Array, msgBufIdx: number, deviceTimeline: DeviceTimeline, pollRespMetadata: DeviceTypePollRespMetadata, 
                         devAttrsState: DeviceAttributesState, maxDataPoints: number): number {
         
         // console.log(`processMsgAttrGroup msg ${msgHexStr} timestamp ${timestamp} origTimestamp ${origTimestamp} msgBufIdx ${msgBufIdx}`)
 
         // Extract msg timestamp
-        let { newBufIdx, timestampUs } = this.extractTimestampAndAdvanceIdx(msgBuffer, msgBufIdx, deviceTimeline);
+        const { newBufIdx, timestampUs } = this.extractTimestampAndAdvanceIdx(msgBuffer, msgBufIdx, deviceTimeline);
         if (newBufIdx < 0)
             return -1;
         msgBufIdx = newBufIdx;
-        
+
         // Start of message data
         const msgDataStartIdx = msgBufIdx;
 
@@ -69,7 +69,10 @@ export default class AttributeHandler {
         }
         
         // Number of bytes in group
-        const pollRespSizeBytes = pollRespMetadata.b;
+        let pollRespSizeBytes = msgBufIdx - msgDataStartIdx;
+        if (pollRespSizeBytes < pollRespMetadata.b) {
+            pollRespSizeBytes = pollRespMetadata.b;
+        }
 
         // Check if any attributes were added (in addition to timestamp)
         if (newAttrValues.length === 0) {
@@ -78,7 +81,7 @@ export default class AttributeHandler {
         }
 
         // All attributes must have the same number of new values
-        let numNewDataPoints = newAttrValues[0].length;
+        const numNewDataPoints = newAttrValues[0].length;
         for (let i = 1; i < newAttrValues.length; i++) {
             if (newAttrValues[i].length !== numNewDataPoints) {
                 console.warn(`DeviceManager msg attrGroup ${pollRespMetadata} attrName ${pollRespMetadata.a[i].n} newAttrValues ${newAttrValues} do not have the same length`);
@@ -123,7 +126,7 @@ export default class AttributeHandler {
 
         // Handle the timestamps with increments if specified
         const timeIncUs: number = pollRespMetadata.us ? pollRespMetadata.us : 1000;
-        let timestampsUs = Array(numNewDataPoints).fill(0);
+        const timestampsUs = Array(numNewDataPoints).fill(0);
         for (let i = 0; i < numNewDataPoints; i++) {
             timestampsUs[i] =  timestampUs + i * timeIncUs;
         }
@@ -141,7 +144,7 @@ export default class AttributeHandler {
         return msgDataStartIdx+pollRespSizeBytes;
     }
 
-    private processMsgAttribute(attrDef: DeviceTypeAttribute, msgBuffer: Buffer, msgBufIdx: number, msgDataStartIdx: number): { values: number[], newMsgBufIdx: number} {
+    private processMsgAttribute(attrDef: DeviceTypeAttribute, msgBuffer: Uint8Array, msgBufIdx: number, msgDataStartIdx: number): { values: number[], newMsgBufIdx: number} {
 
         // Current field message string index
         let curFieldBufIdx = msgBufIdx;
@@ -169,11 +172,11 @@ export default class AttributeHandler {
         const maskOnSignedValue = "m" in attrDef && isAttrTypeSigned(attrTypesOnly);
 
         // Extract the value using python-struct
-        let unpackValues = struct.unpack(maskOnSignedValue ? attrTypesOnly.toUpperCase() : attrTypesOnly, attrBuf);
+        const unpackValues = structUnpack(maskOnSignedValue ? attrTypesOnly.toUpperCase() : attrTypesOnly, attrBuf);
         let attrValues = unpackValues as number[];
 
         // Get number of bytes consumed
-        const numBytesConsumed = struct.sizeOf(attrTypesOnly);
+        const numBytesConsumed = structSizeOf(attrTypesOnly);
 
         // // Check if sign extendable mask specified on signed value
         // if (mmSpecifiedOnSignedValue) {
@@ -252,7 +255,7 @@ export default class AttributeHandler {
         return value;
     }
 
-    private extractTimestampAndAdvanceIdx(msgBuffer: Buffer, msgBufIdx: number, timestampWrapHandler: DeviceTimeline): 
+    private extractTimestampAndAdvanceIdx(msgBuffer: Uint8Array, msgBufIdx: number, timestampWrapHandler: DeviceTimeline): 
                     { newBufIdx: number, timestampUs: number } {
 
         // Check there are enough characters for the timestamp
@@ -264,9 +267,9 @@ export default class AttributeHandler {
         const tsBuffer = msgBuffer.slice(msgBufIdx, msgBufIdx + this.POLL_RESULT_TIMESTAMP_SIZE);
         let timestampUs: number;
         if (this.POLL_RESULT_TIMESTAMP_SIZE === 2) { 
-            timestampUs = struct.unpack(">H", tsBuffer)[0] as number * this.POLL_RESULT_RESOLUTION_US;
+            timestampUs = structUnpack(">H", tsBuffer)[0] as number * this.POLL_RESULT_RESOLUTION_US;
         } else {
-            timestampUs = struct.unpack(">I", tsBuffer)[0] as number * this.POLL_RESULT_RESOLUTION_US;
+            timestampUs = structUnpack(">I", tsBuffer)[0] as number * this.POLL_RESULT_RESOLUTION_US;
         }
 
         // Check if time is before lastReportTimeMs - in which case a wrap around occurred to add on the max value

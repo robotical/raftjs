@@ -30,7 +30,7 @@ export function deviceAttrGetLatestFormatted(attrState: DeviceAttributeState): s
             decimalPlaces = parseInt(parts[1], 10);
         }
         const formattedNumber = value.toFixed(decimalPlaces);
-        let fieldWidth = parseInt(parts[0], 10);
+        const fieldWidth = parseInt(parts[0], 10);
         return fieldWidth ? formattedNumber.padStart(fieldWidth, ' ') : formattedNumber;
     } else if (format.endsWith('x')) {
         // Hexadecimal formatting
