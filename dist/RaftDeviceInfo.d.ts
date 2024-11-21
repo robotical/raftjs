@@ -52,13 +52,8 @@ export interface DeviceTypeInfo {
 export interface DeviceTypeInfoRecs {
     [devType: string]: DeviceTypeInfo;
 }
-export interface DeviceTypeInfoTestJsonRec {
-    addresses?: string;
-    devInfoJson: DeviceTypeInfo;
-}
-export interface DeviceTypeInfoTestJsonElem {
-    [devType: string]: DeviceTypeInfoTestJsonRec;
-}
-export interface DeviceTypeInfoTestJsonFile {
-    devTypes: DeviceTypeInfoTestJsonElem;
-}
+export type RaftDevTypeInfoResponse = {
+    req: string;
+    rslt: string;
+    devinfo: DeviceTypeInfo;
+};

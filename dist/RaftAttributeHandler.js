@@ -11,7 +11,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const tslib_1 = require("tslib");
 const RaftCustomAttrHandler_1 = tslib_1.__importDefault(require("./RaftCustomAttrHandler"));
 const RaftDeviceInfo_1 = require("./RaftDeviceInfo");
-const python_struct_1 = tslib_1.__importDefault(require("python-struct"));
+const RaftStruct_1 = require("./RaftStruct");
 class AttributeHandler {
     constructor() {
         // Custom attribute handler
@@ -57,7 +57,10 @@ class AttributeHandler {
             }
         }
         // Number of bytes in group
-        const pollRespSizeBytes = pollRespMetadata.b;
+        let pollRespSizeBytes = msgBufIdx - msgDataStartIdx;
+        if (pollRespSizeBytes < pollRespMetadata.b) {
+            pollRespSizeBytes = pollRespMetadata.b;
+        }
         // Check if any attributes were added (in addition to timestamp)
         if (newAttrValues.length === 0) {
             console.warn(`DeviceManager msg attrGroup ${JSON.stringify(pollRespMetadata)} newAttrValues ${newAttrValues} is empty`);
@@ -139,10 +142,10 @@ class AttributeHandler {
         // Check if a mask is used and the value is signed
         const maskOnSignedValue = "m" in attrDef && (0, RaftDeviceInfo_1.isAttrTypeSigned)(attrTypesOnly);
         // Extract the value using python-struct
-        let unpackValues = python_struct_1.default.unpack(maskOnSignedValue ? attrTypesOnly.toUpperCase() : attrTypesOnly, attrBuf);
+        let unpackValues = (0, RaftStruct_1.structUnpack)(maskOnSignedValue ? attrTypesOnly.toUpperCase() : attrTypesOnly, attrBuf);
         let attrValues = unpackValues;
         // Get number of bytes consumed
-        const numBytesConsumed = python_struct_1.default.sizeOf(attrTypesOnly);
+        const numBytesConsumed = (0, RaftStruct_1.structSizeOf)(attrTypesOnly);
         // // Check if sign extendable mask specified on signed value
         // if (mmSpecifiedOnSignedValue) {
         //     const signBitMask = 1 << (signExtendableMaskSignPos - 1);
@@ -219,10 +222,10 @@ class AttributeHandler {
         const tsBuffer = msgBuffer.slice(msgBufIdx, msgBufIdx + this.POLL_RESULT_TIMESTAMP_SIZE);
         let timestampUs;
         if (this.POLL_RESULT_TIMESTAMP_SIZE === 2) {
-            timestampUs = python_struct_1.default.unpack(">H", tsBuffer)[0] * this.POLL_RESULT_RESOLUTION_US;
+            timestampUs = (0, RaftStruct_1.structUnpack)(">H", tsBuffer)[0] * this.POLL_RESULT_RESOLUTION_US;
         }
         else {
-            timestampUs = python_struct_1.default.unpack(">I", tsBuffer)[0] * this.POLL_RESULT_RESOLUTION_US;
+            timestampUs = (0, RaftStruct_1.structUnpack)(">I", tsBuffer)[0] * this.POLL_RESULT_RESOLUTION_US;
         }
         // Check if time is before lastReportTimeMs - in which case a wrap around occurred to add on the max value
         if (timestampUs < timestampWrapHandler.lastReportTimestampUs) {

@@ -20,7 +20,7 @@ export interface DeviceTimeline {
     reportTimestampOffsetUs: number;
 }
 export interface DeviceState {
-    deviceTypeInfo: DeviceTypeInfo;
+    deviceTypeInfo: DeviceTypeInfo | undefined;
     deviceTimeline: DeviceTimeline;
     deviceAttributes: DeviceAttributesState;
     deviceIsNew: boolean;

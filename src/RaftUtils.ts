@@ -9,8 +9,6 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import RaftLog from "./RaftLog";
-import semverGt from "semver/functions/gt";
-import semverEq from "semver/functions/eq";
 
 export default class RaftUtils {
   static _isEndianSet = false;
@@ -446,9 +444,21 @@ export default class RaftUtils {
     }
   }
 
+  static semverGt(v1: string, v2: string): boolean {
+    const [major1, minor1, patch1] = v1.split('.').map(Number);
+    const [major2, minor2, patch2] = v2.split('.').map(Number);
+    if (major1 !== major2) return major1 > major2;
+    if (minor1 !== minor2) return minor1 > minor2;
+    return patch1 > patch2;
+  }
+
   static isVersionGreater(v1: string, v2: string) {
     try {
-      return semverGt(v1, v2);
+      const [major1, minor1, patch1] = v1.split('.').map(Number);
+      const [major2, minor2, patch2] = v2.split('.').map(Number);
+      if (major1 !== major2) return major1 > major2;
+      if (minor1 !== minor2) return minor1 > minor2;
+      return patch1 > patch2;
     } catch (e) {
       // one of the two versions is invalid, return true
       return true;
@@ -457,7 +467,7 @@ export default class RaftUtils {
 
   static isVersionEqual(v1: string, v2: string) {
     try {
-      return semverEq(v1, v2);
+      return v1 === v2;
     } catch (e) {
       // one of the two versions is invalid, return false
       return false;

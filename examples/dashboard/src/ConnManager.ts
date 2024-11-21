@@ -68,7 +68,7 @@ export default class ConnManager {
 
     // Hook up the connector
     this._connector.setEventListener((evtType, eventEnum, eventName, eventData) => {
-      RaftLog.info(`ConnManager - event ${eventName}`);
+      // RaftLog.info(`ConnManager - event ${eventName}`);
       if (this._onConnectionEvent) {
         this._onConnectionEvent(evtType, eventEnum, eventName, eventData);
       }

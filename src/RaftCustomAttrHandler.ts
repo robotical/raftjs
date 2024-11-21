@@ -11,7 +11,7 @@ import { DeviceTypePollRespMetadata } from "./RaftDeviceInfo";
 
 export default class CustomAttrHandler {
     
-    public handleAttr(pollRespMetadata: DeviceTypePollRespMetadata, msgBuffer: Buffer, msgBufIdx: number): number[][] {
+    public handleAttr(pollRespMetadata: DeviceTypePollRespMetadata, msgBuffer: Uint8Array, msgBufIdx: number): number[][] {
 
         // Number of bytes in the each message
         const numMsgBytes = pollRespMetadata.b;

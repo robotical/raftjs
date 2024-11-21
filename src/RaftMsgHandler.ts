@@ -679,7 +679,7 @@ export default class RaftMsgHandler {
     // RICREST protocol
     msgBuf[msgBufPos++] = RICRESTElemCode.RICREST_ELEM_CODE_FILEBLOCK;
 
-    // Buffer header
+    // Header
     msgBuf[msgBufPos++] = streamID & 0xff;
     msgBuf[msgBufPos++] = (blockStart >> 16) & 0xff;
     msgBuf[msgBufPos++] = (blockStart >> 8) & 0xff;

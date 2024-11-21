@@ -119,6 +119,7 @@ export default class RaftUtils {
     static btoaLookup(idx: number | undefined): string | undefined;
     static buf2hex(buffer: Uint8Array): string;
     static padStartFn(inStr: string, targetLength: number, padString: string): string;
+    static semverGt(v1: string, v2: string): boolean;
     static isVersionGreater(v1: string, v2: string): boolean;
     static isVersionEqual(v1: string, v2: string): boolean;
     static withTimeout(ms: number, promise: Promise<any>): Promise<any>;

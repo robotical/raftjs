@@ -413,7 +413,7 @@ class RaftMsgHandler {
                 RaftProtocolDefs_1.RaftCommsMsgProtocol.MSG_PROTOCOL_RICREST;
         // RICREST protocol
         msgBuf[msgBufPos++] = RaftProtocolDefs_1.RICRESTElemCode.RICREST_ELEM_CODE_FILEBLOCK;
-        // Buffer header
+        // Header
         msgBuf[msgBufPos++] = streamID & 0xff;
         msgBuf[msgBufPos++] = (blockStart >> 16) & 0xff;
         msgBuf[msgBufPos++] = (blockStart >> 8) & 0xff;

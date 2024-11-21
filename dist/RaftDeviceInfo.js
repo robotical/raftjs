@@ -8,7 +8,9 @@
 //
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.decodeAttrUnitsEncoding = exports.isAttrTypeSigned = exports.getAttrTypeBits = void 0;
+exports.getAttrTypeBits = getAttrTypeBits;
+exports.isAttrTypeSigned = isAttrTypeSigned;
+exports.decodeAttrUnitsEncoding = decodeAttrUnitsEncoding;
 const attrTypeBits = {
     "c": 8, "b": 8, "B": 8, "?": 8,
     "h": 16, "H": 16, ">h": 16, "<h": 16, ">H": 16, "<H": 16,
@@ -23,15 +25,12 @@ function getAttrTypeBits(attrType) {
     }
     return 8;
 }
-exports.getAttrTypeBits = getAttrTypeBits;
 function isAttrTypeSigned(attrType) {
     const attrStr = attrType.charAt(0) === ">" || attrType.charAt(0) === "<" ? attrType.slice(1).charAt(0) : attrType.charAt(0);
     return attrStr === "b" || attrStr === "h" || attrStr === "i" || attrStr === "l" || attrStr === "q";
 }
-exports.isAttrTypeSigned = isAttrTypeSigned;
 function decodeAttrUnitsEncoding(unitsEncoding) {
     // Replace instances of HTML encoded chars like &deg; with the actual char
     return unitsEncoding.replace(/&deg;/g, "°");
 }
-exports.decodeAttrUnitsEncoding = decodeAttrUnitsEncoding;
 //# sourceMappingURL=RaftDeviceInfo.js.map

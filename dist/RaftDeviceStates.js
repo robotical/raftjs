@@ -8,7 +8,9 @@
 //
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getDeviceKey = exports.DevicesState = exports.deviceAttrGetLatestFormatted = void 0;
+exports.DevicesState = void 0;
+exports.deviceAttrGetLatestFormatted = deviceAttrGetLatestFormatted;
+exports.getDeviceKey = getDeviceKey;
 function deviceAttrGetLatestFormatted(attrState) {
     if (attrState.values.length === 0) {
         return 'N/A';
@@ -48,7 +50,6 @@ function deviceAttrGetLatestFormatted(attrState) {
     }
     return value.toString();
 }
-exports.deviceAttrGetLatestFormatted = deviceAttrGetLatestFormatted;
 class DevicesState {
 }
 exports.DevicesState = DevicesState;
@@ -56,5 +57,4 @@ exports.DevicesState = DevicesState;
 function getDeviceKey(busName, devAddr) {
     return `${busName}_${devAddr}`;
 }
-exports.getDeviceKey = getDeviceKey;
 //# sourceMappingURL=RaftDeviceStates.js.map

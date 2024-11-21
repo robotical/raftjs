@@ -11,3 +11,6 @@ coverage
 bundle.js
 
 removedcode
+
+.parcel-cache
+

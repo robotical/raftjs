@@ -11,8 +11,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const tslib_1 = require("tslib");
 const RaftLog_1 = tslib_1.__importDefault(require("./RaftLog"));
-const gt_1 = tslib_1.__importDefault(require("semver/functions/gt"));
-const eq_1 = tslib_1.__importDefault(require("semver/functions/eq"));
 class RaftUtils {
     /**
      *
@@ -414,9 +412,24 @@ class RaftUtils {
             return padString.slice(0, targetLength) + String(inStr);
         }
     }
+    static semverGt(v1, v2) {
+        const [major1, minor1, patch1] = v1.split('.').map(Number);
+        const [major2, minor2, patch2] = v2.split('.').map(Number);
+        if (major1 !== major2)
+            return major1 > major2;
+        if (minor1 !== minor2)
+            return minor1 > minor2;
+        return patch1 > patch2;
+    }
     static isVersionGreater(v1, v2) {
         try {
-            return (0, gt_1.default)(v1, v2);
+            const [major1, minor1, patch1] = v1.split('.').map(Number);
+            const [major2, minor2, patch2] = v2.split('.').map(Number);
+            if (major1 !== major2)
+                return major1 > major2;
+            if (minor1 !== minor2)
+                return minor1 > minor2;
+            return patch1 > patch2;
         }
         catch (e) {
             // one of the two versions is invalid, return true
@@ -425,7 +438,7 @@ class RaftUtils {
     }
     static isVersionEqual(v1, v2) {
         try {
-            return (0, eq_1.default)(v1, v2);
+            return v1 === v2;
         }
         catch (e) {
             // one of the two versions is invalid, return false

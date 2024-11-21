@@ -8,7 +8,6 @@
 //
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import axios from "axios";
 import RaftChannel from "./RaftChannel";
 import RaftFileHandler from "./RaftFileHandler";
 import RaftLog from "./RaftLog";
@@ -91,8 +90,12 @@ export default class RICUpdateManager {
 
       // debug
       RaftLog.debug(`Update URL: ${updateURL}`);
-      const response = await axios.get(updateURL);
-      this._latestVersionInfo = response.data;
+      const response = await fetch(updateURL, { method: 'GET' });
+      if (!response.ok) {
+        RaftLog.debug(`HTTP error! status: ${response.status}`);
+        return RaftUpdateEvent.UPDATE_CANT_REACH_SERVER;
+      }
+      this._latestVersionInfo = await response.json();
     } catch (error) {
       RaftLog.debug("checkForUpdate failed to get latest from internet");
     }

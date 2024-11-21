@@ -10,7 +10,6 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 Object.defineProperty(exports, "__esModule", { value: true });
 const tslib_1 = require("tslib");
-const axios_1 = tslib_1.__importDefault(require("axios"));
 const RaftLog_1 = tslib_1.__importDefault(require("./RaftLog"));
 const RaftTypes_1 = require("./RaftTypes");
 const RaftUpdateEvents_1 = require("./RaftUpdateEvents");
@@ -71,8 +70,12 @@ class RICUpdateManager {
             updateURL = updateURL.replace("{HWRevNo}", raftSystemInfo.RicHwRevNo.toString());
             // debug
             RaftLog_1.default.debug(`Update URL: ${updateURL}`);
-            const response = await axios_1.default.get(updateURL);
-            this._latestVersionInfo = response.data;
+            const response = await fetch(updateURL, { method: 'GET' });
+            if (!response.ok) {
+                RaftLog_1.default.debug(`HTTP error! status: ${response.status}`);
+                return RaftUpdateEvents_1.RaftUpdateEvent.UPDATE_CANT_REACH_SERVER;
+            }
+            this._latestVersionInfo = await response.json();
         }
         catch (error) {
             RaftLog_1.default.debug("checkForUpdate failed to get latest from internet");

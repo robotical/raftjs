@@ -17,9 +17,9 @@ export default function Main() {
       eventEnum: RaftConnEvent | RaftUpdateEvent | RaftPublishEvent,
       eventName: string,
       data?: object | string | null) => {
-      console.log(`Connection event: ${eventName}`);
       if (eventType === "conn") {
         if ((eventEnum === RaftConnEvent.CONN_CONNECTED) || (eventEnum === RaftConnEvent.CONN_DISCONNECTED)) {
+          console.log(`Connection event: ${eventName}`);
           setConnectionStatus(eventEnum);
         }
       }
