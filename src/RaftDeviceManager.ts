@@ -22,7 +22,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
     // private static _instance: DeviceManager;
 
     // Max data points to store
-    private _maxDatapointsToStore = 10000;
+    private _maxDatapointsToStore = 1000;
 
     // Min time between attempts to retrieve device type info
     private _minTimeBetweenDeviceTypeInfoRetrievalMs = 60000;
@@ -434,5 +434,4 @@ export class DeviceManager implements RaftDeviceMgrIF{
         }
         return bytes;
     }
-
 }
