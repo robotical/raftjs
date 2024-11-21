@@ -1,7 +1,6 @@
-import { RaftChannelWebBLE, RaftConnector, RaftEventFn, RaftLog, RaftSystemUtils } from "../../../src/main";
-import SystemTypeCog from "./SystemTypeCog/SystemTypeCog";
-import SystemTypeMarty from "./SystemTypeMarty/SystemTypeMarty";
-import SystemTypeGeneric from "./SystemTypeGeneric/SystemTypeGeneric";
+import { RaftConnector, RaftEventFn, RaftLog, RaftSystemUtils, RaftSysTypeManager } from "../../../src/main";
+
+const sysTypeManager = RaftSysTypeManager.getInstance();
 
 export default class ConnManager {
 
@@ -11,16 +10,7 @@ export default class ConnManager {
   // Connector
   private _connector = new RaftConnector(async (systemUtils: RaftSystemUtils) => {
     const systemInfo = await systemUtils.getSystemInfo();
-    if (systemInfo.SystemName === "RIC") {
-      RaftLog.info("ConnManager - Marty detected");
-      return new SystemTypeMarty();
-    } else if (systemInfo.SystemName === "Cog") {
-      RaftLog.info("ConnManager - Cog detected");
-      return new SystemTypeCog();
-    } else {
-      RaftLog.info(`ConnManager - using generic system ${systemInfo.SystemName} ${JSON.stringify(systemInfo)}`);
-      return new SystemTypeGeneric();
-    }
+    return sysTypeManager.createSystemType(systemInfo.SystemName) || sysTypeManager.createDefaultSystemType();
   });
 
   // Callback on connection event
@@ -48,12 +38,11 @@ export default class ConnManager {
     return this._connector;
   }
 
-  private async getBleDevice(): Promise<BluetoothDevice | null> {
+  private async getBleDevice(uuids: string[]): Promise<BluetoothDevice | null> {
+    const filtersArray = uuids.map((uuid) => ({ services: [uuid] }));
     try {
       const dev = await navigator.bluetooth.requestDevice({
-        filters: [
-          { services: [RaftChannelWebBLE.ServiceUUID] }
-        ],
+        filters: filtersArray,
         optionalServices: []
       });
       return dev;
@@ -64,21 +53,22 @@ export default class ConnManager {
   }
 
   // Connect
-  public async connect(method: string, locator: string | object): Promise<boolean> {
+  public async connect(method: string, locator: string | object, uuids: string[]): Promise<boolean> {
 
     // Hook up the connector
     this._connector.setEventListener((evtType, eventEnum, eventName, eventData) => {
-      // RaftLog.info(`ConnManager - event ${eventName}`);
+      RaftLog.verbose(`ConnManager - event ${eventName}`);
       if (this._onConnectionEvent) {
         this._onConnectionEvent(evtType, eventEnum, eventName, eventData);
       }
     });
+    await this._connector.initializeChannel(method);
     // Set the connector websocket suffix
     if (method === "WebBLE") {
-      const dev = await this.getBleDevice();
-      return this._connector.connect(method, dev as object);
+      const dev = await this.getBleDevice(uuids);
+      return this._connector.connect(dev as object);
     }
-    return this._connector.connect(method, locator);
+    return this._connector.connect(locator);
   }
 
   // Disconnect

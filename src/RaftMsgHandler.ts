@@ -571,7 +571,6 @@ export default class RaftMsgHandler {
     // if (msgRsltCode === RaftMsgResultCode.MESSAGE_RESULT_OK) {
     const resolve = this._msgTrackInfos[msgNum].resolve;
     if (resolve) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       RaftLog.verbose(`_msgCompleted msgNum ${msgNum} result ${msgRsltCode.toString()} ${JSON.stringify(msgRsltObj)}`);
       (resolve as ((arg: object | null) => void))(msgRsltObj);
     }

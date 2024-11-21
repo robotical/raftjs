@@ -41,6 +41,10 @@ export class CogStateInfo {
     public constructor(private _deviceManager: DeviceManager) {
     }
 
+    get deviceManager(): DeviceManager {
+        return this._deviceManager; 
+    }
+
     updateFromMsg(rxMsg: Uint8Array, frameTimeMs: number): Array<string> {
 
         // Debug 

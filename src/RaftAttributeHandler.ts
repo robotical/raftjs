@@ -28,7 +28,7 @@ export default class AttributeHandler {
         // console.log(`processMsgAttrGroup msg ${msgHexStr} timestamp ${timestamp} origTimestamp ${origTimestamp} msgBufIdx ${msgBufIdx}`)
 
         // Extract msg timestamp
-        let { newBufIdx, timestampUs } = this.extractTimestampAndAdvanceIdx(msgBuffer, msgBufIdx, deviceTimeline);
+        const { newBufIdx, timestampUs } = this.extractTimestampAndAdvanceIdx(msgBuffer, msgBufIdx, deviceTimeline);
         if (newBufIdx < 0)
             return -1;
         msgBufIdx = newBufIdx;
@@ -81,7 +81,7 @@ export default class AttributeHandler {
         }
 
         // All attributes must have the same number of new values
-        let numNewDataPoints = newAttrValues[0].length;
+        const numNewDataPoints = newAttrValues[0].length;
         for (let i = 1; i < newAttrValues.length; i++) {
             if (newAttrValues[i].length !== numNewDataPoints) {
                 console.warn(`DeviceManager msg attrGroup ${pollRespMetadata} attrName ${pollRespMetadata.a[i].n} newAttrValues ${newAttrValues} do not have the same length`);
@@ -126,7 +126,7 @@ export default class AttributeHandler {
 
         // Handle the timestamps with increments if specified
         const timeIncUs: number = pollRespMetadata.us ? pollRespMetadata.us : 1000;
-        let timestampsUs = Array(numNewDataPoints).fill(0);
+        const timestampsUs = Array(numNewDataPoints).fill(0);
         for (let i = 0; i < numNewDataPoints; i++) {
             timestampsUs[i] =  timestampUs + i * timeIncUs;
         }
@@ -172,7 +172,7 @@ export default class AttributeHandler {
         const maskOnSignedValue = "m" in attrDef && isAttrTypeSigned(attrTypesOnly);
 
         // Extract the value using python-struct
-        let unpackValues = structUnpack(maskOnSignedValue ? attrTypesOnly.toUpperCase() : attrTypesOnly, attrBuf);
+        const unpackValues = structUnpack(maskOnSignedValue ? attrTypesOnly.toUpperCase() : attrTypesOnly, attrBuf);
         let attrValues = unpackValues as number[];
 
         // Get number of bytes consumed

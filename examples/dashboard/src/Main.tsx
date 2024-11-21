@@ -1,12 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import './styles.css';
 import ConnManager from './ConnManager';
-import { RaftConnEvent, RaftUpdateEvent, RaftPublishEvent } from "../../../src/main";
+import { RaftConnEvent, RaftUpdateEvent, RaftPublishEvent, RaftSysTypeManager } from "../../../src/main";
 import StatusPanel from './StatusPanel';
 import DevicesPanel from './DevicesPanel';
 import CommandPanel from './CommandPanel';
+import SystemTypeCog from './SystemTypeCog/SystemTypeCog';
+import SystemTypeMarty from './SystemTypeMarty/SystemTypeMarty';
+import SystemTypeGeneric from './SystemTypeGeneric/SystemTypeGeneric';
 
+const sysTypeManager = RaftSysTypeManager.getInstance();
 const connManager = ConnManager.getInstance();
+sysTypeManager.addSystemType("Cog", () => new SystemTypeCog());
+sysTypeManager.addSystemType("Marty", () => new SystemTypeMarty());
+sysTypeManager.addDefaultSystemType(() => new SystemTypeGeneric());
+
 
 export default function Main() {
   const [connectionStatus, setConnectionStatus] = useState<RaftConnEvent>(RaftConnEvent.CONN_DISCONNECTED);
@@ -70,7 +78,7 @@ export default function Main() {
                   const ipAddrElem = document.getElementById("ip-addr") as HTMLInputElement;
                   if (ipAddrElem) {
                     const ipAddr = ipAddrElem.value;
-                    connManager.connect("WebSocket", ipAddr);
+                    connManager.connect("WebSocket", ipAddr, []);
                   } else {
                     console.error("No IP address entered");
                   }
@@ -82,7 +90,7 @@ export default function Main() {
               <div className="info-box">
                 <h3>WebBLE</h3>
                 <button className="action-button" onClick={() => {
-                  connManager.connect("WebBLE", "");
+                  connManager.connect("WebBLE", "", sysTypeManager.getAllServiceUUIDs());
                 }
                 }>
                   Connect
@@ -91,7 +99,7 @@ export default function Main() {
               <div className="info-box">
                 <h3>WebSerial</h3>
                 <button className="action-button" onClick={() => {
-                  connManager.connect("WebSerial", "");
+                  connManager.connect("WebSerial", "", []);
                 }
                 }>
                   Connect

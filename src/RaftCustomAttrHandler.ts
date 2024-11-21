@@ -17,10 +17,10 @@ export default class CustomAttrHandler {
         const numMsgBytes = pollRespMetadata.b;
 
         // Create a vector for each attribute in the metadata
-        let attrValueVecs: [][] = [];
+        const attrValueVecs: [][] = [];
 
         // Reference to each vector by attribute name
-        let attrValues: { [key: string]: number[] } = {};
+        const attrValues: { [key: string]: number[] } = {};
 
         // Add attributes to the vector
         for (let attrIdx = 0; attrIdx < pollRespMetadata.a.length; attrIdx++) {
@@ -32,13 +32,13 @@ export default class CustomAttrHandler {
         if (pollRespMetadata.c!.n === "max30101_fifo") {
             // Hex dump msgBuffer
             // console.log(`CustomAttrHandler handleAttr ${pollRespMetadata.c!.n} msgBuffer: ${msgBuffer.toString('hex')}`); 
-            let buf = msgBuffer.slice(msgBufIdx);
+            const buf = msgBuffer.slice(msgBufIdx);
             if (buf.length < numMsgBytes) {
                 return [];
             }
 
             // Generated code ...
-            let N=(buf[0]+32-buf[2])%32;
+            const N=(buf[0]+32-buf[2])%32;
             let k=3;
             let i=0;
             while (i<N) {

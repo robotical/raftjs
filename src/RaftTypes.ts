@@ -248,7 +248,7 @@ export type PystatusMsgType = {
 };
 
 // Phone BLE 
-export class DiscoveredRIC {
+export class DiscoveredDevice {
   _localName = '';
   _name = '';
   _id = '';
@@ -278,4 +278,4 @@ export class DiscoveredRIC {
   }
 }
 
-export type DiscoveredRICsCB = (discoveredRICs: DiscoveredRIC[]) => void;
+export type DiscoveredDevicesCB = (discoveredDevicess: DiscoveredDevice[]) => void;

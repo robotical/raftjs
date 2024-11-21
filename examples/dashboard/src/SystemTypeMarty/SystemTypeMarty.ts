@@ -12,6 +12,9 @@ export default class SystemTypeMarty implements RaftSystemType {
   firmwareDestName = "ricfw";
   normalFileDestName = "fs";
   connectorOptions = {wsSuffix: "ws", bleConnItvlMs: 7.5};
+  BLEServiceUUIDs = ["aa76677e-9cfd-4626-a510-0d305be57c8d"];
+  BLECmdUUID = "aa76677e-9cfd-4626-a510-0d305be57c8e";
+  BLERespUUID = "aa76677e-9cfd-4626-a510-0d305be57c8f";
 
   // LED Pattern checker
   private _ledPatternChecker: RICLEDPatternChecker = new RICLEDPatternChecker();
