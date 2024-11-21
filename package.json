@@ -1,51 +1,50 @@
 {
-    "name": "@robdobsn/raftjs",
-    "version": "1.5.0",
-    "description": "Javascript/TS library for Raft library",
-    "main": "dist/web/main.js",
-    "types": "dist/web/main.d.ts",
-    "react-native": "dist/react-native/main.js",
-    "author": "Rob Dobson <rob@dobson.com>",
-    "repository": {
-      "type": "git",
-      "url": "https://github.com/robdobsn/raftjs.git"
-    },
-    "bugs": {
-      "url": "https://github.com/robdobsn/raftjs/issues"
-    },
-    "license": "MIT",
-    "keywords": [
-      "Raft"
-    ],
-    "publishConfig": {
-      "registry": "https://registry.npmjs.org/",
-      "access": "public"
-    },
-    "scripts": {
-      "build": "tsc -p tsconfig.json",
-      "build:phone": "tsc -p tsconfig.react-native.json",
-      "build-all": "npm run clean && npm run build && npm run build:phone",
-      "lint": "eslint ./src",
-      "clean": "rm -rf dist build package",
-      "docs": "typedoc --entryPoints src/main.ts",
-      "watch-all": "tsc -p tsconfig.json --watch & tsc -p tsconfig.react-native.json --watch"
-    },
-    "devDependencies": {
-      "@types/node": "^20.14.0",
-      "@types/web-bluetooth": "^0.0.20",
-      "@typescript-eslint/eslint-plugin": "^8.6.0",
-      "eslint": "^9.4.0",
-      "react-native-ble-plx": "^3.2.0",
-      "typescript": "^5.4.5"
-    },
-    "dependencies": {
-      "@types/text-encoding": "^0.0.39",
-      "isomorphic-ws": "^5.0.0",
-      "text-encoding": "^0.7.0",
-      "tslib": "^2.6.2"
-    },
-    "peerDependencies": {
-      "react-native-ble-plx": "^3.2.1"
-    }
+  "name": "@robdobsn/raftjs",
+  "version": "1.5.0",
+  "description": "Javascript/TS library for Raft library",
+  "main": "dist/web/main.js",
+  "types": "dist/web/main.d.ts",
+  "react-native": "dist/react-native/main.js",
+  "author": "Rob Dobson <rob@dobson.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/robdobsn/raftjs.git"
+  },
+  "bugs": {
+    "url": "https://github.com/robdobsn/raftjs/issues"
+  },
+  "license": "MIT",
+  "keywords": [
+    "Raft"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:phone": "tsc -p tsconfig.react-native.json",
+    "build-all": "npm run clean && npm run build && npm run build:phone",
+    "lint": "eslint ./src",
+    "clean": "rm -rf dist build package",
+    "docs": "typedoc --entryPoints src/main.ts",
+    "watch-all": "tsc -p tsconfig.json --watch & tsc -p tsconfig.react-native.json --watch"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/web-bluetooth": "^0.0.20",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "eslint": "^9.4.0",
+    "react-native-ble-plx": "^3.2.0",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "@types/text-encoding": "^0.0.39",
+    "isomorphic-ws": "^5.0.0",
+    "text-encoding": "^0.7.0",
+    "tslib": "^2.6.2"
+  },
+  "peerDependencies": {
+    "react-native-ble-plx": "^3.2.1"
   }
-  
+}
