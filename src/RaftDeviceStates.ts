@@ -51,6 +51,7 @@ export interface DeviceAttributeState {
     name: string;
     newAttribute: boolean;
     newData: boolean;
+    numNewValues: number;
     values: number[];
     units: string;
     range: number[];

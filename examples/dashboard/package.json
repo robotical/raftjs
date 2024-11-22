@@ -4,7 +4,7 @@
   "description": "",
   "scripts": {
     "start": "npm run clean && parcel build src/index.html && parcel src/index.html",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist .parcel-cache",
     "build": "npm run clean && parcel build src/index.html"
   },
   "keywords": [],
@@ -28,6 +28,7 @@
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
     "react-color": "^2.19.3",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "simple-statistics": "^7.8.7"
   }
 }

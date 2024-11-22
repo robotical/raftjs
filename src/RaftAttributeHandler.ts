@@ -103,7 +103,8 @@ export default class AttributeHandler {
                 devAttrsState[attrDef.n] = {
                     name: attrDef.n,
                     newAttribute: true,
-                    newData: true,
+                    newData: false,
+                    numNewValues: 0,
                     values: [],
                     units: decodeAttrUnitsEncoding(attrDef.u || ""),
                     range: attrDef.r || [0, 0],
@@ -122,6 +123,7 @@ export default class AttributeHandler {
             // Add the new values
             devAttrsState[attrDef.n].values.push(...newAttrValues[attrIdx]);
             devAttrsState[attrDef.n].newData = newAttrValues[attrIdx].length > 0;
+            devAttrsState[attrDef.n].numNewValues = newAttrValues[attrIdx].length;
         }
 
         // Handle the timestamps with increments if specified
@@ -238,6 +240,10 @@ export default class AttributeHandler {
         // console.log(`DeviceManager msg attrGroup ${attrGroup} devkey ${deviceKey} valueHexChars ${valueHexChars} msgHexStr ${msgHexStr} ts ${timestamp} attrName ${attrDef.n} type ${attrDef.t} value ${value} signExtendableMaskSignPos ${signExtendableMaskSignPos} attrTypeDefForStruct ${attrTypeDefForStruct} attrDef ${attrDef}`);
         // Move buffer position if using relative positioning
         msgBufIdx += attrUsesAbsPos ? 0 : numBytesConsumed;
+
+        // if (attrDef.n === "amb0") {
+        //     console.log(`${new Date().toISOString()} ${attrDef.n} ${attrValues}`);
+        // }
 
         // Return the value
         return { values: attrValues, newMsgBufIdx: msgBufIdx };

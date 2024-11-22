@@ -44,9 +44,9 @@ export class DeviceManager implements RaftDeviceMgrIF{
     private _systemUtils: RaftSystemUtils | null = null;
 
     // Device callbacks
-    private _callbackNewDevice: ((deviceKey: string, state: DeviceState) => void) | null = null;
-    private _callbackNewDeviceAttribute: ((deviceKey: string, attrState: DeviceAttributeState) => void) | null = null;
-    private _callbackNewAttributeData: ((deviceKey: string, attrState: DeviceAttributeState) => void) | null = null;
+    private _newDeviceCallbacks: Array<(deviceKey: string, state: DeviceState) => void> = [];
+    private _newDeviceAttributeCallbacks: Array<(deviceKey: string, attrState: DeviceAttributeState) => void> = [];
+    private _newAttributeDataCallbacks: Array<(deviceKey: string, attrState: DeviceAttributeState) => void> = [];
 
     public getDevicesState(): DevicesState {
         return this._devicesState;
@@ -97,21 +97,37 @@ export class DeviceManager implements RaftDeviceMgrIF{
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    // Callbacks
+    // Register callbacks
     ////////////////////////////////////////////////////////////////////////////
 
-    // Register state change callbacks
-    public onNewDevice(callback: (deviceKey: string, state: DeviceState) => void): void {
-        // Save the callback
-        this._callbackNewDevice = callback;
+    public addNewDeviceCallback(callback: (deviceKey: string, state: DeviceState) => void): void {
+        if (!this._newDeviceCallbacks.includes(callback)) {
+            this._newDeviceCallbacks.push(callback);
+        }
     }
-    public onNewDeviceAttribute(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
-        // Save the callback
-        this._callbackNewDeviceAttribute = callback;
+
+    public removeNewDeviceCallback(callback: (deviceKey: string, state: DeviceState) => void): void {
+        this._newDeviceCallbacks = this._newDeviceCallbacks.filter((cb) => cb !== callback);
     }
-    public onNewAttributeData(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
-        // Save the callback
-        this._callbackNewAttributeData = callback;
+
+    public addNewAttributeCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
+        if (!this._newDeviceAttributeCallbacks.includes(callback)) {
+            this._newDeviceAttributeCallbacks.push(callback);
+        }
+    }
+
+    public removeNewAttributeCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
+        this._newDeviceAttributeCallbacks = this._newDeviceAttributeCallbacks.filter((cb) => cb !== callback);
+    }
+
+    public addAttributeDataCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
+        if (!this._newAttributeDataCallbacks.includes(callback)) {
+            this._newAttributeDataCallbacks.push(callback);
+        }
+    }
+
+    public removeAttributeDataCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
+        this._newAttributeDataCallbacks = this._newAttributeDataCallbacks.filter((cb) => cb !== callback);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -270,33 +286,18 @@ export class DeviceManager implements RaftDeviceMgrIF{
 
             // Check if device record is new
             if (deviceState.deviceIsNew) {
-                if (this._callbackNewDevice) {
-                    this._callbackNewDevice(
-                        deviceKey,
-                        deviceState
-                    );
-                }
+                this._newDeviceCallbacks.forEach((cb) => cb(deviceKey, deviceState));
                 deviceState.deviceIsNew = false;
             }
 
             // Iterate over the attributes
             Object.entries(deviceState.deviceAttributes).forEach(([, attrState]): void => {
                 if (attrState.newAttribute) {
-                    if (this._callbackNewDeviceAttribute) {
-                        this._callbackNewDeviceAttribute(
-                            deviceKey,
-                            attrState
-                        );
-                    }
+                    this._newDeviceAttributeCallbacks.forEach((cb) => cb(deviceKey, attrState));
                     attrState.newAttribute = false;
                 }
                 if (attrState.newData) {
-                    if (this._callbackNewAttributeData) {
-                        this._callbackNewAttributeData(
-                            deviceKey,
-                            attrState
-                        );
-                    }
+                    this._newAttributeDataCallbacks.forEach((cb) => cb(deviceKey, attrState));
                     attrState.newData = false;
                 }
             });

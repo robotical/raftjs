@@ -1,55 +1,113 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import './styles.css';
+import SettingsScreen from './SettingsScreen';
 import ConnManager from './ConnManager';
-import { RaftConnEvent, RaftUpdateEvent, RaftPublishEvent, RaftSysTypeManager } from "../../../src/main";
+import {
+  RaftConnEvent,
+  RaftUpdateEvent,
+  RaftPublishEvent,
+  RaftSysTypeManager,
+} from '../../../src/main';
 import StatusPanel from './StatusPanel';
 import DevicesPanel from './DevicesPanel';
 import CommandPanel from './CommandPanel';
+import LatencyTestPanel from './LatencyTestPanel';
 import SystemTypeCog from './SystemTypeCog/SystemTypeCog';
 import SystemTypeMarty from './SystemTypeMarty/SystemTypeMarty';
 import SystemTypeGeneric from './SystemTypeGeneric/SystemTypeGeneric';
+import SettingsManager from './SettingsManager';
 
 const sysTypeManager = RaftSysTypeManager.getInstance();
 const connManager = ConnManager.getInstance();
-sysTypeManager.addSystemType("Cog", () => new SystemTypeCog());
-sysTypeManager.addSystemType("Marty", () => new SystemTypeMarty());
+sysTypeManager.addSystemType('Cog', () => new SystemTypeCog());
+sysTypeManager.addSystemType('Marty', () => new SystemTypeMarty());
 sysTypeManager.addDefaultSystemType(() => new SystemTypeGeneric());
 
-
 export default function Main() {
-  const [connectionStatus, setConnectionStatus] = useState<RaftConnEvent>(RaftConnEvent.CONN_DISCONNECTED);
+  const [connectionStatus, setConnectionStatus] = useState<RaftConnEvent>(
+    RaftConnEvent.CONN_DISCONNECTED
+  );
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const settingsManager = SettingsManager.getInstance();
+  const [latencyTestEnabled, setLatencyTestEnabled] = useState(
+    settingsManager.getSetting('latencyTest')
+  );
 
   useEffect(() => {
-    // Define the listener for raft events
-    const listener = (eventType: string,
+    const listener = (
+      eventType: string,
       eventEnum: RaftConnEvent | RaftUpdateEvent | RaftPublishEvent,
       eventName: string,
-      data?: object | string | null) => {
-      if (eventType === "conn") {
-        if ((eventEnum === RaftConnEvent.CONN_CONNECTED) || (eventEnum === RaftConnEvent.CONN_DISCONNECTED)) {
-          console.log(`Connection event: ${eventName}`);
+      data?: object | string | null
+    ) => {
+      if (eventType === 'conn') {
+        if (
+          eventEnum === RaftConnEvent.CONN_CONNECTED ||
+          eventEnum === RaftConnEvent.CONN_DISCONNECTED
+        ) {
           setConnectionStatus(eventEnum);
         }
       }
     };
 
-    // Set the listener function
     connManager.setConnectionEventListener(listener);
 
-    // Clean up the listener when the component unmounts
     return () => {
-      connManager.setConnectionEventListener(() => { });
+      connManager.setConnectionEventListener(() => {});
     };
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLatencyTestEnabled(settingsManager.getSetting('latencyTest'));
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (showSettings) {
+    return <SettingsScreen onBack={() => setShowSettings(false)} />;
+  }
 
   return (
     <div className="content-outer">
       <div className="header">
         <h1>RaftJS Dashboard</h1>
+        <div
+          className="menu-icon header-menu-icon"
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          ☰
+        </div>
+        {menuOpen && (
+          <div className="dropdown-menu" ref={menuRef}>
+            <div
+              className="menu-item"
+              onClick={() => {
+                setMenuOpen(false);
+                setShowSettings(true);
+              }}
+            >
+              Settings
+            </div>
+          </div>
+        )}
       </div>
       <div className="content-body">
-        {/* Div optionally shown if connected */}
-        {connectionStatus === RaftConnEvent.CONN_CONNECTED ?
+        {connectionStatus === RaftConnEvent.CONN_CONNECTED ? (
           <>
             <div className="connected-panel">
               <div className="info-boxes">
@@ -58,56 +116,74 @@ export default function Main() {
                     <h3>Connected</h3>
                   </div>
                   <div>
-                    <button className="action-button" onClick={() => connManager.disconnect()}>Disconnect</button>
+                    <button
+                      className="action-button"
+                      onClick={() => connManager.disconnect()}
+                    >
+                      Disconnect
+                    </button>
                   </div>
                 </div>
               </div>
               <StatusPanel />
+              {latencyTestEnabled && <LatencyTestPanel />}
               <CommandPanel />
             </div>
             <DevicesPanel />
           </>
-          :
+        ) : (
           <>
             <div className="info-boxes">
               <div className="info-box">
                 <h3>WebSocket</h3>
-                <input className="ip-addr-input" id="ip-addr" type="text" placeholder="IP Address" />
-                <button className="action-button" onClick={() => {
-                  // Get IP address
-                  const ipAddrElem = document.getElementById("ip-addr") as HTMLInputElement;
-                  if (ipAddrElem) {
-                    const ipAddr = ipAddrElem.value;
-                    connManager.connect("WebSocket", ipAddr, []);
-                  } else {
-                    console.error("No IP address entered");
-                  }
-                }
-                }>
+                <input
+                  className="ip-addr-input"
+                  id="ip-addr"
+                  type="text"
+                  placeholder="IP Address"
+                />
+                <button
+                  className="action-button"
+                  onClick={() => {
+                    const ipAddrElem = document.getElementById(
+                      'ip-addr'
+                    ) as HTMLInputElement;
+                    if (ipAddrElem) {
+                      const ipAddr = ipAddrElem.value;
+                      connManager.connect('WebSocket', ipAddr, []);
+                    } else {
+                      console.error('No IP address entered');
+                    }
+                  }}
+                >
                   Connect
                 </button>
               </div>
               <div className="info-box">
                 <h3>WebBLE</h3>
-                <button className="action-button" onClick={() => {
-                  connManager.connect("WebBLE", "", sysTypeManager.getAllServiceUUIDs());
-                }
-                }>
+                <button
+                  className="action-button"
+                  onClick={() => {
+                    connManager.connect('WebBLE', '', sysTypeManager.getAllServiceUUIDs());
+                  }}
+                >
                   Connect
                 </button>
               </div>
               <div className="info-box">
                 <h3>WebSerial</h3>
-                <button className="action-button" onClick={() => {
-                  connManager.connect("WebSerial", "", []);
-                }
-                }>
+                <button
+                  className="action-button"
+                  onClick={() => {
+                    connManager.connect('WebSerial', '', []);
+                  }}
+                >
                   Connect
                 </button>
               </div>
             </div>
           </>
-        }
+        )}
       </div>
     </div>
   );

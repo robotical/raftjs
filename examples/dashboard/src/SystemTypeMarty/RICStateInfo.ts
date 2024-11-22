@@ -54,15 +54,27 @@ export class RICStateInfo implements RaftDeviceMgrIF {
         };
     }
 
-    onNewDevice(callback: (deviceKey: string, state: DeviceState) => void): void {
+    addNewDeviceCallback(callback: (deviceKey: string, state: DeviceState) => void): void {
         // TODO - implement if RICStateInfo is to be used as a DeviceMgr
     }
 
-    onNewDeviceAttribute(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
+    removeNewDeviceCallback(callback: (deviceKey: string, state: DeviceState) => void): void {
         // TODO - implement if RICStateInfo is to be used as a DeviceMgr
     }
 
-    onNewAttributeData(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
+    addNewAttributeCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
+        // TODO - implement if RICStateInfo is to be used as a DeviceMgr
+    }
+
+    removeNewAttributeCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
+        // TODO - implement if RICStateInfo is to be used as a DeviceMgr
+    }
+
+    addAttributeDataCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
+        // TODO - implement if RICStateInfo is to be used as a DeviceMgr
+    }
+
+    removeAttributeDataCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
         // TODO - implement if RICStateInfo is to be used as a DeviceMgr
     }
 
