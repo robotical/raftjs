@@ -1,6 +1,6 @@
 {
   "name": "@robdobsn/raftjs",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "description": "Javascript/TS library for Raft library",
   "main": "dist/web/main.js",
   "types": "dist/web/main.d.ts",
@@ -26,7 +26,7 @@
     "build:phone": "tsc -p tsconfig.react-native.json",
     "build-all": "npm run clean && npm run build && npm run build:phone",
     "lint": "eslint ./src",
-    "clean": "rm -rf dist build package",
+    "clean": "rimraf dist build package",
     "docs": "typedoc --entryPoints src/main.ts",
     "watch-all": "tsc -p tsconfig.json --watch & tsc -p tsconfig.react-native.json --watch"
   },
@@ -37,7 +37,8 @@
     "eslint": "^9.4.0",
     "react-native-ble-plx": "^3.2.0",
     "typescript": "^5.4.5",
-    "text-encoding": "^0.7.0"
+    "text-encoding": "^0.7.0",
+    "rimraf": "^6.0.1"
   },
   "dependencies": {
     "@types/text-encoding": "^0.0.39",
