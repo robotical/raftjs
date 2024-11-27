@@ -5,6 +5,7 @@ import DeviceAttrsForm from './DeviceAttrsForm';
 import DeviceActionsForm from './DeviceActionsForm';
 import DeviceLineChart from './DeviceLineChart';
 import ConnManager from './ConnManager';
+import SettingsManager from './SettingsManager';
 
 const connManager = ConnManager.getInstance();
 
@@ -24,6 +25,11 @@ const DevicePanel = ({ deviceKey, lastUpdated }: DevicePanelProps) => {
     const [menuOpen, setMenuOpen] = useState<boolean>(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
+    const settingsManager = SettingsManager.getInstance();
+    const [showCharts, setShowCharts] = useState(
+       settingsManager.getSetting('showCharts')
+    );
+    
     useEffect(() => {
         const startTime = Date.now();
         const updateChart = () => {
@@ -110,10 +116,33 @@ const DevicePanel = ({ deviceKey, lastUpdated }: DevicePanelProps) => {
         document.body.removeChild(textArea);
     };
 
+    let headerText = `Device ${deviceState?.deviceTypeInfo?.name}`;
+    if ((deviceState?.deviceAddress !== undefined) && (deviceState?.deviceAddress !== "") && (deviceState?.deviceAddress !== "0")) {
+        // See if we can identify I2C addresses - should start with two bytes of 0s and then have a byte which is slot and a byte which is address
+        const addrInt = parseInt(deviceState?.deviceAddress, 10);
+        if (addrInt < 65536) {
+            const slot = addrInt >> 8;
+            const address = ("00" + (addrInt & 0xFF).toString(16)).slice(-2);
+            headerText += ` I2C Address 0x${address}`;
+            if (slot === 0)
+                headerText += ` (Main Bus)`;
+            else
+                headerText += ` (Slot ${slot})`;
+        } else {
+            headerText += ` Address ${deviceState?.deviceAddress}`;
+        }
+    }
+    if ((deviceState?.busName !== undefined) && (deviceState?.busName !== "") && (deviceState?.busName !== "0")) {
+        headerText += ` Bus ${deviceState?.busName}`;
+    }
+    if (!deviceState?.isOnline) {
+        headerText += " (Offline)";
+    }
+
     return (
         <div className={`device-panel ${offlineClass}`}>
             <div className="device-block-heading">
-                <div className="device-block-heading-text">Device {deviceState?.deviceTypeInfo?.name} Address {deviceKey}{!deviceState?.isOnline ? " (Offline)" : ""}</div>
+                <div className="device-block-heading-text">{headerText}</div>
                 <div className="menu-icon always-enabled" onClick={() => setMenuOpen(!menuOpen)}>☰</div>
                 {menuOpen && (
                     <div className="dropdown-menu" ref={menuRef}>
@@ -126,7 +155,9 @@ const DevicePanel = ({ deviceKey, lastUpdated }: DevicePanelProps) => {
                     <DeviceAttrsForm deviceKey={deviceKey} lastUpdated={lastUpdated} />
                     <DeviceActionsForm deviceKey={deviceKey} />
                 </div>
-                <DeviceLineChart deviceKey={deviceKey} lastUpdated={timedChartUpdate} />
+                {showCharts &&
+                    <DeviceLineChart deviceKey={deviceKey} lastUpdated={timedChartUpdate} />
+                }
             </div>
         </div>
     );

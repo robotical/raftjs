@@ -3,6 +3,8 @@ import { RaftEventFn, RaftLog, RaftOKFail, RaftPublishEvent, RaftPublishEventNam
 import { StateInfoGeneric } from "./StateInfoGeneric";
 import { DeviceManager } from "../../../../src/RaftDeviceManager";
 
+const SUBSCRIBE_BINARY_MSGS = false;
+
 export default class SystemTypeGeneric implements RaftSystemType {
     nameForDialogs = "Generic System";
     defaultWiFiHostname = "Generic";
@@ -40,13 +42,14 @@ export default class SystemTypeGeneric implements RaftSystemType {
       // Subscription rate
       const subscribeRateHz = 0.1;
       try {
+        const topic = SUBSCRIBE_BINARY_MSGS ? "devbin" : "devjson";
         const subscribeDisable = '{"cmdName":"subscription","action":"update",' +
           '"pubRecs":[' +
-          `{"name":"devjson","rateHz":0,}` +
+          `{"name":"${topic}","rateHz":0,}` +
           ']}';
         const subscribeEnable = '{"cmdName":"subscription","action":"update",' +
           '"pubRecs":[' +
-          `{"name":"devjson","trigger":"timeorchange","rateHz":${subscribeRateHz.toString()}}` +
+          `{"name":"${topic}","trigger":"timeorchange","rateHz":${subscribeRateHz.toString()}}` +
           ']}';
 
         const msgHandler = systemUtils.getMsgHandler();
@@ -67,9 +70,9 @@ export default class SystemTypeGeneric implements RaftSystemType {
     // Other message type
     rxOtherMsgType(payload: Uint8Array, frameTimeMs: number) {
 
-      // RICLog.debug(`rxOtherMsgType payload ${RICUtils.bufferToHex(payload)}`);
+      // RICLog.debug(`rxOtherMsgType payload ${RaftUtils.bufferToHex(payload)}`);
       RaftLog.verbose(`rxOtherMsgType payloadLen ${payload.length}`);
-      const topicIDs = this._stateInfo.updateFromMsg(payload, frameTimeMs);
+      const topicIDs = this._stateInfo.updateFromMsg(payload, frameTimeMs, SUBSCRIBE_BINARY_MSGS);
 
       // Call event handler if registered
       if (this._onEvent) {
@@ -77,7 +80,8 @@ export default class SystemTypeGeneric implements RaftSystemType {
           {
             topicIDs: topicIDs,
             payload: payload,
-            frameTimeMs: frameTimeMs
+            frameTimeMs: frameTimeMs,
+            isBinary: SUBSCRIBE_BINARY_MSGS
           });
       }
     };

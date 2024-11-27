@@ -474,7 +474,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     const rxFrame = RaftUtils.atob(msgFrameBase64!);
 
     // Debug
-    // RaftLog.debug('_onMsgRx from BLE ' + RICUtils.bufferToHex(rxFrame));
+    // RaftLog.debug('_onMsgRx from BLE ' + RaftUtils.bufferToHex(rxFrame));
 
     // Send
     if (rxFrame !== null && this._raftMsgHandler) {

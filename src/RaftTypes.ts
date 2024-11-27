@@ -32,7 +32,7 @@ export type RaftEventFn = (
   eventType: string,
   eventEnum: RaftConnEvent | RaftUpdateEvent | RaftPublishEvent,
   eventName: string,
-  data?: object | string | null,
+  data?: object | string | null
 ) => void;
 
 export interface RaftSubscription {

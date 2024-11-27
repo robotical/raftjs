@@ -50,8 +50,15 @@ export class RICStateInfo implements RaftDeviceMgrIF {
             deviceAttributes: {},
             deviceIsNew: false,
             stateChanged: false,
-            isOnline: false
+            isOnline: false,
+            deviceAddress: "",
+            deviceType: "",
+            busName: ""
         };
+    }
+
+    setMaxDataPointsToStore(maxDataPointsToStore: number): void {
+        // TODO - implement if RICStateInfo is to be used as a DeviceMgr
     }
 
     addNewDeviceCallback(callback: (deviceKey: string, state: DeviceState) => void): void {

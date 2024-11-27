@@ -16,6 +16,9 @@ export default interface RaftDeviceMgrIF {
     getDevicesState(): DevicesState;
     getDeviceState(deviceKey: string): DeviceState;
 
+    // Settings
+    setMaxDataPointsToStore(maxDataPointsToStore: number): void;
+
     // Callbacks
     addNewDeviceCallback(callback: (deviceKey: string, state: DeviceState) => void): void;
     removeNewDeviceCallback(callback: (deviceKey: string, state: DeviceState) => void): void;

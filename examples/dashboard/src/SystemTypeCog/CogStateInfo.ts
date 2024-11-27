@@ -1,6 +1,7 @@
 import { time } from "console";
 import RaftLog from "../../../../src/RaftLog";
 import { DeviceManager } from "../../../../src/RaftDeviceManager";
+import RaftUtils from "../../../../src/RaftUtils";
 
 // export interface IMUStateInfo {
 //     gx: number;
@@ -45,18 +46,22 @@ export class CogStateInfo {
         return this._deviceManager; 
     }
 
-    updateFromMsg(rxMsg: Uint8Array, frameTimeMs: number): Array<string> {
+    updateFromMsg(rxMsg: Uint8Array, frameTimeMs: number, isBinary: boolean): Array<string> {
 
         // Debug 
         // RaftLog.info(`CogStateInfo: updateFromMsg: rxMsg: ${rxMsg} frameTimeMs: ${frameTimeMs}`);
 
-        // Convert Uint8Array to string
-        const decoder = new TextDecoder('utf-8');
-        const jsonString = decoder.decode(rxMsg.slice(2));
+        if (isBinary) {
+            // console.log(`CogStateInfo: updateFromMsg: ${RaftUtils.bufferToHex(rxMsg)}`);
+            this._deviceManager.handleClientMsgBinary(rxMsg);
+        } else {
+            // Convert Uint8Array to string
+            const decoder = new TextDecoder('utf-8');
+            const jsonString = decoder.decode(rxMsg.slice(2));
 
-        // Handle using device manager
-        this._deviceManager.handleClientMsgJson(jsonString);
-
+            // Handle using device manager
+            this._deviceManager.handleClientMsgJson(jsonString);
+        }
 
     //     // Debug
     //     // RaftLog.info(`CogStateInfo: updateFromMsg: jsonString: ${jsonString}`);

@@ -98,7 +98,7 @@ export default class SystemTypeMarty implements RaftSystemType {
 
   // Other message type
   rxOtherMsgType(payload: Uint8Array, frameTimeMs: number) {
-    // RICLog.debug(`onRxROSSerialMsg payload ${RICUtils.bufferToHex(payload)}`);
+    // RICLog.debug(`onRxROSSerialMsg payload ${RaftUtils.bufferToHex(payload)}`);
     RaftLog.verbose(`onRxROSSerialMsg payloadLen ${payload.length}`);
     const topicIDs = this._ricStateInfo.updateFromROSSerialMsg(payload, this._commsStats, this._addOnManager, frameTimeMs);
 

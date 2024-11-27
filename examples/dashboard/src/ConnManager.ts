@@ -1,6 +1,8 @@
 import { RaftConnector, RaftEventFn, RaftLog, RaftSystemUtils, RaftSysTypeManager } from "../../../src/main";
+import SettingsManager from "./SettingsManager";
 
 const sysTypeManager = RaftSysTypeManager.getInstance();
+const settingsManager = SettingsManager.getInstance();
 
 export default class ConnManager {
 
@@ -10,7 +12,9 @@ export default class ConnManager {
   // Connector
   private _connector = new RaftConnector(async (systemUtils: RaftSystemUtils) => {
     const systemInfo = await systemUtils.getSystemInfo();
-    return sysTypeManager.createSystemType(systemInfo.SystemName) || sysTypeManager.createDefaultSystemType();
+    const sysType = sysTypeManager.createSystemType(systemInfo.SystemName) || sysTypeManager.createDefaultSystemType();
+    sysType?.deviceMgrIF.setMaxDataPointsToStore(settingsManager.getSetting("maxDatapointsToStore"));
+    return sysType;
   });
 
   // Callback on connection event

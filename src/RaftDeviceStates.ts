@@ -77,6 +77,9 @@ export interface DeviceState {
     deviceIsNew: boolean;
     stateChanged: boolean;
     isOnline: boolean;
+    deviceAddress: string;
+    deviceType: string;
+    busName: string;
 }
 
 export class DevicesState {
@@ -84,6 +87,6 @@ export class DevicesState {
 }
 
 // Add the getDeviceKey method to generate a composite key
-export function getDeviceKey(busName: string, devAddr: string): string {
-    return `${busName}_${devAddr}`;
+export function getDeviceKey(busName: string, devAddr: string, devType: string): string {
+    return `${busName}_${devAddr}_${devType}`;
 }

@@ -67,6 +67,15 @@ export class DeviceManager implements RaftDeviceMgrIF{
     }
 
     ////////////////////////////////////////////////////////////////////////////
+    // Settings
+    ////////////////////////////////////////////////////////////////////////////
+
+    public setMaxDataPointsToStore(maxDatapointsToStore: number): void {
+        this._maxDatapointsToStore = maxDatapointsToStore;
+        // console.log(`DeviceManager setMaxDataPointsToStore ${maxDatapointsToStore}`);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
     // Send REST commands
     ////////////////////////////////////////////////////////////////////////////
 
@@ -140,13 +149,131 @@ export class DeviceManager implements RaftDeviceMgrIF{
     }
 
     ////////////////////////////////////////////////////////////////////////////
+    // Handle device message binary
+    ////////////////////////////////////////////////////////////////////////////
+
+    public async handleClientMsgBinary(rxMsg: Uint8Array) {
+        // console.log(`DeviceManager client1 msg ${RaftUtils.bufferToHex(rxMsg)}`);
+
+        // Example messages
+        // 0080 0015 81 0000006a 0004 53b7 feff00000100081857079314 0011 80 00000000 0011 53b2 075106e400d60054 0010 80 00000000 0012 5231 000d0000010e01
+        // 0080 0011 80 00000000                                                     0011 53f1 075806e900d70052 0010 80 00000000 0012 5231 000d0000010e01
+
+        // First two bytes of each message are the message type (0080)
+        // There are then a series of sections each of which is the data for a device
+        //   First two bytes of each section is the section length (big endian) not including the length bytes
+        //   Next byte is the connection mode (0 for direct connect, 1+ for bus number) and the MSB of this byte is 1 if the device is online
+        //   Next is the device address (4 bytes big endian)
+        //   Next is the device type index (2 bytes big endian)
+        //   Finally the device data which can be one or more groups of attributes defined by the schema
+
+        // Iterate through sections
+        let msgPos = 2;
+        while (msgPos < rxMsg.length) {
+
+            // Check length
+            if (rxMsg.length < msgPos + 11) {
+                console.warn(`DeviceManager handleClientMsgBinary invalid length ${rxMsg.length}`);
+                return;
+            }
+
+            // Get the length of the section
+            const sectionLen = (rxMsg[msgPos] << 8) + rxMsg[msgPos + 1];
+            if (sectionLen > rxMsg.length) {
+                console.warn(`DeviceManager handleClientMsgBinary invalid msgPos ${msgPos} msgLen ${sectionLen} rxMsgLen ${rxMsg.length}`);
+                return;
+            }
+
+            // Extract message elements
+            const busNum = rxMsg[msgPos + 2] & 0x7f;
+            const isOnline = (rxMsg[msgPos + 2] & 0x80) !== 0;
+            const devAddr = (rxMsg[msgPos + 3] << 24) + (rxMsg[msgPos + 4] << 16) + (rxMsg[msgPos + 5] << 8) + rxMsg[msgPos + 6];
+            const devTypeIdx = (rxMsg[msgPos + 7] << 8) + rxMsg[msgPos + 8];
+            let attrGroupPos = msgPos + 9;
+
+            // Debug
+            // console.log(`DeviceManager overallLen ${rxMsg.length} sectionPos ${msgPos} sectionLen ${sectionLen} ${RaftUtils.bufferToHex(rxMsg.slice(msgPos, msgPos + sectionLen))}`);
+            // console.log(`DeviceManager connMode ${busNum} isOnline ${isOnline} devAddr ${devAddr} devTypeIdx ${devTypeIdx} attrGroupDataLen ${sectionLen - 9}`);
+
+            // Device key
+            const deviceKey = getDeviceKey(busNum.toString(), devAddr.toString(), devTypeIdx.toString());
+
+            // Update the last update time
+            this._deviceLastUpdateTime[deviceKey] = Date.now();
+
+            // Check if a device state already exists
+            if (!(deviceKey in this._devicesState) || (this._devicesState[deviceKey].deviceTypeInfo === undefined)) {
+                // Get the device type info
+                const deviceTypeInfo = await this.getDeviceTypeInfo(busNum.toString(), devAddr.toString(), devTypeIdx.toString());
+                // console.log(`DeviceManager deviceTypeInfo ${JSON.stringify(deviceTypeInfo)}`);
+
+                // Check if device record exists
+                if (deviceKey in this._devicesState) {
+                    if (deviceTypeInfo !== undefined) {
+                        this._devicesState[deviceKey].deviceTypeInfo = deviceTypeInfo;
+                        this._devicesState[deviceKey].deviceType = deviceTypeInfo.name || "";
+                        this._devicesState[deviceKey].busName = busNum.toString();
+                        this._devicesState[deviceKey].deviceAddress = devAddr.toString();
+                    }
+                } else {
+                    // Create device record - device type info may be undefined
+                    this._devicesState[deviceKey] = {
+                        deviceTypeInfo: deviceTypeInfo,
+                        deviceTimeline: {
+                            timestampsUs: [],
+                            lastReportTimestampUs: 0,
+                            reportTimestampOffsetUs: 0
+                        },
+                        deviceAttributes: {},
+                        deviceIsNew: true,
+                        stateChanged: false,
+                        isOnline: true,
+                        deviceAddress: devAddr.toString(),
+                        deviceType: deviceTypeInfo?.name || "",
+                        busName: busNum.toString()
+                    };
+                }
+            }
+
+            // Get device state
+            const deviceState = this._devicesState[deviceKey];
+            deviceState.isOnline = isOnline;
+            
+            // Check if device type info is available
+            if (deviceState.deviceTypeInfo && deviceState.deviceTypeInfo.resp) {
+
+                // Iterate over attributes in the group
+                const pollRespMetadata = deviceState.deviceTypeInfo!.resp!;
+
+                // Iterate over attribute groups
+                while (attrGroupPos < msgPos + sectionLen + 2) {
+                    const curTimelineLen = deviceState.deviceTimeline.timestampsUs.length;
+                    const newMsgBufIdx = this._attributeHandler.processMsgAttrGroup(rxMsg, attrGroupPos,
+                        deviceState.deviceTimeline, pollRespMetadata,
+                        deviceState.deviceAttributes,
+                        this._maxDatapointsToStore);
+                    if (newMsgBufIdx < 0)
+                        break;
+                    attrGroupPos = newMsgBufIdx;
+                    if (deviceState.deviceTimeline.timestampsUs.length !== curTimelineLen) {
+                        deviceState.stateChanged = true;
+                    }
+                }
+            }
+
+            // Move to next message
+            msgPos += sectionLen + 2;
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
     // Handle device message JSON
     ////////////////////////////////////////////////////////////////////////////
 
-    public handleClientMsgJson(jsonMsg: string) {
+    public async handleClientMsgJson(jsonMsg: string) {
 
         const data = JSON.parse(jsonMsg) as DeviceMsgJson;
-        // console.log(`DeviceManager websocket message ${JSON.stringify(data)}`);
+        // console.log(`DeviceManager client msg ${JSON.stringify(data)}`);
 
         // Iterate over the buses
         Object.entries(data).forEach(([busName, devices]) => {
@@ -165,22 +292,23 @@ export class DeviceManager implements RaftDeviceMgrIF{
                     return;
                 }
 
+                // Device type name
+                let deviceTypeName = "";
+                if (attrGroups && typeof attrGroups === 'object' && "_t" in attrGroups && typeof attrGroups._t === "string") {
+                    deviceTypeName = attrGroups._t || "";
+                } else {
+                    console.warn(`DeviceManager missing device type attrGroups ${JSON.stringify(attrGroups)}`);
+                    return;
+                }
+
                 // Device key
-                const deviceKey = getDeviceKey(busName, devAddr);
+                const deviceKey = getDeviceKey(busName, devAddr, deviceTypeName);
 
                 // Update the last update time
                 this._deviceLastUpdateTime[deviceKey] = Date.now();
 
                 // Check if a device state already exists
                 if (!(deviceKey in this._devicesState) || (this._devicesState[deviceKey].deviceTypeInfo === undefined)) {
-
-                    let deviceTypeName = "";
-                    if (attrGroups && typeof attrGroups === 'object' && "_t" in attrGroups && typeof attrGroups._t === "string") {
-                        deviceTypeName = attrGroups._t || "";
-                    } else {
-                        console.warn(`DeviceManager missing device type attrGroups ${JSON.stringify(attrGroups)}`);
-                        return;
-                    }
 
                     // Get the device type info
                     const deviceTypeInfo = await this.getDeviceTypeInfo(busName, devAddr, deviceTypeName);
@@ -189,6 +317,9 @@ export class DeviceManager implements RaftDeviceMgrIF{
                     if (deviceKey in this._devicesState) {
                         if (deviceTypeInfo !== undefined) {
                             this._devicesState[deviceKey].deviceTypeInfo = deviceTypeInfo;
+                            this._devicesState[deviceKey].deviceType = deviceTypeName;
+                            this._devicesState[deviceKey].deviceAddress = devAddr;
+                            this._devicesState[deviceKey].busName = busName;
                         }
                     } else {
                         // Create device record - device type info may be undefined
@@ -202,7 +333,10 @@ export class DeviceManager implements RaftDeviceMgrIF{
                             deviceAttributes: {},
                             deviceIsNew: true,
                             stateChanged: false,
-                            isOnline: true
+                            isOnline: true,
+                            deviceAddress: devAddr,
+                            deviceType: deviceTypeName,
+                            busName: busName
                         };
                     }
                 }
