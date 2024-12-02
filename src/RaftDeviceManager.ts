@@ -85,7 +85,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
             const msgHandler = this._systemUtils?.getMsgHandler();
             if (msgHandler) {
                 const msgRslt = await msgHandler.sendRICRESTURL<RaftOKFail>(cmd);
-                return msgRslt.isOk();
+                return msgRslt.rslt === "ok";
             }
             return false;
         } catch (error) {
@@ -492,14 +492,36 @@ export class DeviceManager implements RaftDeviceMgrIF{
     public async sendAction(deviceKey: string, action: DeviceTypeAction, data: number[]): Promise<boolean> {
         // console.log(`DeviceManager sendAction ${deviceKey} action name ${action.n} value ${value} prefix ${action.w}`);
 
-        // Form the write bytes
-        const writeBytes = action.t ? structPack(action.t, data) : new Uint8Array(0);
+        let writeBytes: Uint8Array;
+
+        // Check for one data item
+        if (data.length === 1) {
+
+            let value = data[0];
+
+            // Check for conversion
+            if (action.sub !== undefined) {
+                value = value - action.sub;
+            }
+            if (action.mul !== undefined) {
+                value = value * action.mul;
+            }
+
+            // Form the write bytes
+            writeBytes = action.t ? structPack(action.t, data) : new Uint8Array(0);
+
+        } else
+        {
+
+            // Form the write bytes which may have multiple data items
+            writeBytes = action.t ? structPack(action.t, data) : new Uint8Array(0);
+        }
 
         // Convert to hex string
         let writeHexStr = this.toHex(writeBytes);
 
-        // Add prefix
-        writeHexStr = action.w + writeHexStr;
+        // Add prefix and postfix
+        writeHexStr = (action.w ? action.w : "") + writeHexStr + (action.wz ? action.wz : "");
 
         // Separate the bus and address in the deviceKey (_ char)
         const devBus = deviceKey.split("_")[0]
@@ -517,7 +539,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
             const msgHandler = this._systemUtils?.getMsgHandler();
             if (msgHandler) {
                 const msgRslt = await msgHandler.sendRICRESTURL<RaftOKFail>(cmd);
-                return msgRslt.isOk();
+                return msgRslt.rslt === "ok";
             }
             return false;
         } catch (error) {

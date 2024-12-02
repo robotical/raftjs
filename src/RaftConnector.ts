@@ -353,7 +353,7 @@ export default class RaftConnector {
       return await this._raftMsgHandler.sendRICRESTURL<RaftOKFail>(commandName, bridgeID);
     } catch (error) {
       RaftLog.warn(`sendRICRESTMsg failed ${error}`);
-      return new RaftOKFail();
+      return { rslt: 'fail' };
     }
   }
 

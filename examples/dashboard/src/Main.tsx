@@ -37,6 +37,25 @@ export default function Main() {
     settingsManager.getSetting('latencyTest')
   );
 
+  const [ipAddress, setIpAddress] = useState<string>(
+    localStorage.getItem('lastIpAddress') || ''
+  );
+
+  const handleConnect = () => {
+    if (ipAddress.trim() === '') {
+      console.error('No IP address entered');
+      return;
+    }
+    connManager.connect('WebSocket', ipAddress, []);
+    localStorage.setItem('lastIpAddress', ipAddress);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      handleConnect();
+    }
+  };
+
   useEffect(() => {
     const listener = (
       eventType: string,
@@ -167,20 +186,13 @@ export default function Main() {
                       id="ip-addr"
                       type="text"
                       placeholder="IP Address"
+                      value={ipAddress}
+                      onChange={(e) => setIpAddress(e.target.value)}
+                      onKeyDown={handleKeyDown}                      
                     />
                     <button
                       className="action-button"
-                      onClick={() => {
-                        const ipAddrElem = document.getElementById(
-                          'ip-addr'
-                        ) as HTMLInputElement;
-                        if (ipAddrElem) {
-                          const ipAddr = ipAddrElem.value;
-                          connManager.connect('WebSocket', ipAddr, []);
-                        } else {
-                          console.error('No IP address entered');
-                        }
-                      }}
+                      onClick={handleConnect}
                     >
                       Connect
                     </button>

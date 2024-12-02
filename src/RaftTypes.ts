@@ -59,30 +59,22 @@ export class RaftSystemInfo {
   Friendly? = "";
 }
 
-export class RaftCalibInfo {
-  rslt = '';
-  calDone = 0;
-  validMs? = 0;
+export type RaftCalibInfo = {
+  rslt: string;
+  calDone: number;
+  validMs? : number;
 }
 
+// NOTE: Do not put any methods in any of the response classes as they 
+// are simply wrappers around JSON and will not necessarily be constructed
+// as objects
 export class RaftOKFail {
-  RAFT_OK = 'ok';
-  set(rsltFlag: boolean) {
-    if (rsltFlag) {
-      this.rslt = this.RAFT_OK;
-    } else {
-      this.rslt = 'fail';
-    }
-  }
-  rslt = 'commsFail';
-  isOk() {
-    return this.rslt === this.RAFT_OK;
-  }
+  rslt = 'failComms';
 }
 
-export class RaftReportMsg {
+export type RaftReportMsg = {
   msgType?: string;
-  rslt = '';
+  rslt: string;
   timeReceived?: number;
   hexRd?: string;
   elemName?: string;
@@ -92,19 +84,19 @@ export class RaftReportMsg {
   msgBody?: string;
 }
 
-export class RaftHWFWStat {
-  s = '';
-  m = '';
-  v = '';
-  n = '';
-  p = 0;
-  i = 0;
+export type RaftHWFWStat = {
+  s: string;
+  m: string;
+  v: string;
+  n: string;
+  p: number;
+  i: number;
 }
 
-export class RaftHWFWUpdRslt {
-  req = '';
-  rslt = 'commsFail';
-  st: RaftHWFWStat = new RaftHWFWStat();
+export type RaftHWFWUpdRslt = {
+  req: string;
+  rslt: string;
+  st: RaftHWFWStat;
 }
 
 export type RaftFWInfo = {

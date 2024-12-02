@@ -30,7 +30,9 @@ const DeviceActionsForm: React.FC<DeviceActionsTableProps> = ({ deviceKey }) => 
         setDeviceActions(actions);
         // Initialize input values
         const initialValues: InputValues = actions.reduce((acc, action) => {
-            acc = { ...acc, [action.n]: action.d ? action.d : (action.r ? action.r[0] | 0 : 0) };
+            acc = { ...acc, [action.n]: action.d ? action.d : 
+                    (action.r ? 
+                        (action.r.length > 1 ? (action.r[1] + action.r[0])/2 : 0) | 0 : 0) };
             return acc;
         }, {});
         setInputValues(initialValues);
