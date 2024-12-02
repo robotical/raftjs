@@ -508,7 +508,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
             }
 
             // Form the write bytes
-            writeBytes = action.t ? structPack(action.t, data) : new Uint8Array(0);
+            writeBytes = action.t ? structPack(action.t, [value]) : new Uint8Array(0);
 
         } else
         {
