@@ -24,19 +24,22 @@ const DeviceActionsForm: React.FC<DeviceActionsTableProps> = ({ deviceKey }) => 
         if (!deviceManager) {
             return;
         }
-        const deviceState = deviceManager.getDeviceState(deviceKey);
-        const { deviceTypeInfo } = deviceState;
-        const actions: DeviceTypeAction[] = deviceTypeInfo?.actions || [];
-        setDeviceActions(actions);
-        // Initialize input values
-        const initialValues: InputValues = actions.reduce((acc, action) => {
-            acc = { ...acc, [action.n]: action.d ? action.d : 
-                    (action.r ? 
-                        (action.r.length > 1 ? (action.r[1] + action.r[0])/2 : 0) | 0 : 0) };
-            return acc;
-        }, {});
-        setInputValues(initialValues);
-        queueSendAction(initialValues);
+        // Wait a little while inline for the device to be ready
+        setTimeout(() => {
+            const deviceState = deviceManager.getDeviceState(deviceKey);
+            const { deviceTypeInfo } = deviceState;
+            const actions: DeviceTypeAction[] = deviceTypeInfo?.actions || [];
+            setDeviceActions(actions);
+            // Initialize input values
+            const initialValues: InputValues = actions.reduce((acc, action) => {
+                acc = { ...acc, [action.n]: action.d ? action.d : 
+                        (action.r ? 
+                            (action.r.length > 1 ? (action.r[1] + action.r[0])/2 : 0) | 0 : 0) };
+                return acc;
+            }, {});
+            setInputValues(initialValues);
+            queueSendAction(initialValues);
+        } , 1000);
     }, [deviceKey]);
 
     const handleInputChange = (name: string, value: number) => {

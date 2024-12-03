@@ -84,6 +84,10 @@ const DeviceLineChart: React.FC<DeviceLineChartProps> = memo(({ deviceKey, lastU
         USB: "hsl(71, 69.60%, 60.00%)",
         powerMan: "hsl(0, 69.60%, 60.00%)",
         powerBtnLvl: "hsl(120, 69.60%, 60.00%)",
+        angle: "hsl(240, 69.60%, 60.00%)",
+        current: "hsl(300, 69.60%, 60.00%)",
+        state: "hsl(60, 69.60%, 60.00%)",
+        velocity: "hsl(120, 69.60%, 60.00%)",
     });
 
     useEffect(() => {
