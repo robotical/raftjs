@@ -1,6 +1,6 @@
 {
   "name": "raftjs-example-dashboard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "scripts": {
     "start": "npm run clean && parcel build src/index.html && parcel src/index.html",
@@ -20,12 +20,13 @@
     "console-browserify": "^1.2.0",
     "parcel": "^2.11.0",
     "process": "^0.11.10",
+    "rimraf": "^6.0.1",
     "typescript": "^5.3.3",
-    "util": "^0.12.5",
-    "rimraf": "^6.0.1"
+    "util": "^0.12.5"
   },
   "dependencies": {
     "chart.js": "^4.4.4",
+    "isomorphic-ws": "^5.0.0",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
     "react-color": "^2.19.3",

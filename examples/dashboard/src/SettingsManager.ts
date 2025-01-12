@@ -1,8 +1,10 @@
 export type Settings = {
-  latencyTest: boolean;
   showCharts: boolean;
   maxChartDataPoints: number;
   maxDatapointsToStore: number;
+  latencyTest: boolean;
+  latencyAttributeName: string;
+  latencyChangeThreshold: number;
 };
 
 class SettingsManager {

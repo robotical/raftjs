@@ -3,9 +3,11 @@ import React, { useEffect, useState } from 'react';
 import './styles.css';
 import ConnManager from "./ConnManager";
 import LatencyTest from './LatencyTest';
+import SettingsManager from './SettingsManager';
 import { DeviceAttributeState, DeviceState } from '../../../src/RaftDeviceStates';
 
 const connManager = ConnManager.getInstance();
+const settingsManager = SettingsManager.getInstance();
 
 const LatencyTestPanel = () => {
 
@@ -13,13 +15,14 @@ const LatencyTestPanel = () => {
   const [stats, setStats] = useState(latencyTest.getLatencyStats());
   const [isWhite, setIsWhite] = useState<boolean>(true);
 
+  const attributeName = settingsManager.getSetting('latencyAttributeName');
+  
   useEffect(() => {
     const deviceManager = connManager.getConnector().getSystemType()?.deviceMgrIF;
     if (!deviceManager) {
       return;
     }
 
-    // Arrow functions automatically bind `this` to the enclosing context
     const onNewDevice = (deviceKey: string, newDeviceState: DeviceState) => {
       console.log(`New device: ${deviceKey}`);
     };
@@ -29,7 +32,8 @@ const LatencyTestPanel = () => {
     };
 
     const onNewAttributeData = (deviceKey: string, attribute: DeviceAttributeState) => {
-      if (attribute.name === 'amb0') {
+      // console.log(`New attribute data: ${deviceKey}`);
+      if (attribute.name === attributeName) {
         latencyTest.processAttrValues(attribute, Date.now());
         setStats(latencyTest.getLatencyStats());
       }
@@ -45,34 +49,41 @@ const LatencyTestPanel = () => {
       deviceManager.removeNewAttributeCallback(onNewAttribute);
       deviceManager.removeAttributeDataCallback(onNewAttributeData);
     };
-  }, [latencyTest]);
-
+  }, [latencyTest, attributeName]);
+  
   useEffect(() => {
     const interval = setInterval(() => {
-      setIsWhite((prev) => !prev);
+      // Toggle `isWhite` and record the color change
+      setIsWhite((prevIsWhite) => {
+        const newColor = !prevIsWhite ? 'white' : 'black';
+        latencyTest.recordColorChange(newColor, new Date().getTime());
+        return !prevIsWhite;
+      });
     }, 2500);
-    return () => clearInterval(interval); // Clean up the interval on component unmount
+    return () => clearInterval(interval);
   }, []);
-
-  // Record color change
-  latencyTest.recordColorChange(isWhite ? 'white' : 'black', new Date().getTime());
 
   return (
     <div className="info-boxes">
       <div className="info-box">
         <h3>Latency Stats</h3>
-        <div
-          className="latency-test-panel"
-          style={{
-            width: '200px',
-            height: '150px',
-            backgroundColor: isWhite ? '#fff' : '#000',
-            border: '1px solid #666',
-            borderRadius: '8px',
-          }}
-        />
-        <div>Mean Latency: {stats.meanLatency ? `${stats.meanLatency.toFixed(1)} ms` : 'N/A'}</div>
-        <div>Std Dev: {stats.stdDevLatency ? `${stats.stdDevLatency.toFixed(1)} ms` : 'N/A'}</div>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div
+            className="latency-test-panel"
+            style={{
+              width: '200px',
+              height: '150px',
+              backgroundColor: isWhite ? '#fff' : '#000',
+              border: '1px solid #666',
+              borderRadius: '8px',
+              marginRight: '20px',
+            }}
+          />
+          <div>
+            <div>Mean Latency: {stats.meanLatency ? `${stats.meanLatency.toFixed(1)} ms` : 'N/A'}</div>
+            <div>Std Dev: {stats.stdDevLatency ? `${stats.stdDevLatency.toFixed(1)} ms` : 'N/A'}</div>
+          </div>
+        </div>
       </div>
     </div>
   );

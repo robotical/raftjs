@@ -264,6 +264,19 @@ export class DeviceManager implements RaftDeviceMgrIF{
             // Move to next message
             msgPos += sectionLen + 2;
         }
+
+        // Check for devices that have not been updated for a while
+        if (this._removeDevicesFlag) {
+            const nowTime = Date.now();
+            Object.entries(this._deviceLastUpdateTime).forEach(([deviceKey, lastUpdateTime]) => {
+                if ((nowTime - lastUpdateTime) > this._removeDevicesTimeMs) {
+                    delete this._devicesState[deviceKey];
+                }
+            });
+        }
+        
+        // Process the callback
+        this.processStateCallback();        
     }
 
     ////////////////////////////////////////////////////////////////////////////

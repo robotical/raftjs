@@ -20,6 +20,12 @@ const SettingsScreen = ({ onBack }: { onBack: () => void }) => {
   const [maxDatapointsToStore, setMaxDatapointsToStore] = useState<number>(
     settingsManager.getSetting('maxDatapointsToStore')
   );
+  const [latencyAttributeName, setLatencyAttributeName] = useState<string>(
+    settingsManager.getSetting('latencyAttributeName') || 'amb0'
+  );
+  const [latencyChangeThreshold, setLatencyChangeThreshold] = useState<number>(
+    settingsManager.getSetting('latencyChangeThreshold') || 100
+  );
 
   const handleSaveAndReturn = () => {
     // Save settings to SettingsManager
@@ -37,8 +43,13 @@ const SettingsScreen = ({ onBack }: { onBack: () => void }) => {
     );
 
     connManager.getConnector().getSystemType()?.deviceMgrIF?.setMaxDataPointsToStore(maxDatapointsToStore);
+    
+    
+    if (latencyTest) {
+      settingsManager.setSetting('latencyAttributeName', latencyAttributeName);
+      settingsManager.setSetting('latencyChangeThreshold', latencyChangeThreshold);
+    }
 
-    // Call the onBack function
     onBack();
   };
 
@@ -50,17 +61,6 @@ const SettingsScreen = ({ onBack }: { onBack: () => void }) => {
       <div className="content-body">
         <div className="info-boxes">
           <div className="info-box">
-
-            <div className="settings-item">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={latencyTest}
-                  onChange={(e) => setLatencyTest(e.target.checked)}
-                />
-                Latency Test
-              </label>
-            </div>
 
             <div className="settings-item">
               <label>
@@ -81,7 +81,11 @@ const SettingsScreen = ({ onBack }: { onBack: () => void }) => {
                   min="1"
                   max="500"
                   value={maxChartDataPoints}
-                  onChange={(e) => setMaxChartDataPoints(Math.min(parseInt(e.target.value, 10) || 1, 500))}
+                  onChange={(e) =>
+                    setMaxChartDataPoints(
+                      Math.min(parseInt(e.target.value, 10) || 1, 500)
+                    )
+                  }
                   style={{ width: '50px', marginLeft: '10px' }}
                 />
               </label>
@@ -95,12 +99,57 @@ const SettingsScreen = ({ onBack }: { onBack: () => void }) => {
                   min="1"
                   max="100000"
                   value={maxDatapointsToStore}
-                  onChange={(e) => setMaxDatapointsToStore(Math.min(parseInt(e.target.value, 10) || 1, 100000))}
+                  onChange={(e) =>
+                    setMaxDatapointsToStore(
+                      Math.min(parseInt(e.target.value, 10) || 1, 100000)
+                    )
+                  }
                   style={{ width: '50px', marginLeft: '10px' }}
                 />
               </label>
             </div>
 
+            <div className="settings-item">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={latencyTest}
+                  onChange={(e) => setLatencyTest(e.target.checked)}
+                />
+                Latency Test
+              </label>
+            </div>
+
+            {latencyTest && (
+              <>
+                <div className="settings-item">
+                  <label>
+                    Attribute Name
+                    <input
+                      type="text"
+                      value={latencyAttributeName}
+                      onChange={(e) => setLatencyAttributeName(e.target.value)}
+                      style={{ marginLeft: '10px' }}
+                    />
+                  </label>
+                </div>
+                <div className="settings-item">
+                  <label>
+                    Change Threshold
+                    <input
+                      type="number"
+                      min="1"
+                      value={latencyChangeThreshold}
+                      onChange={(e) =>
+                        setLatencyChangeThreshold(parseInt(e.target.value, 10) || 1)
+                      }
+                      style={{ width: '60px', marginLeft: '10px' }}
+                    />
+                  </label>
+                </div>
+              </>
+            )}
+            
             <button className="action-button" onClick={handleSaveAndReturn}>
               Save and Return
             </button>
