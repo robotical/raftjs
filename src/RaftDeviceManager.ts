@@ -32,7 +32,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
     private _attributeHandler = new AttributeHandler();
 
     // Devices state
-    private _devicesState = new DevicesState();
+    public _devicesState = new DevicesState();
 
     // Last time each device was updated - used to detect devices that are no longer present
     private _deviceLastUpdateTime: { [deviceKey: string]: number } = {};

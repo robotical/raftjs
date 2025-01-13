@@ -1,6 +1,7 @@
 import { time } from "console";
 import RaftLog from "../../../../src/RaftLog";
 import { DeviceManager } from "../../../../src/RaftDeviceManager";
+import { TextDecoder } from 'text-encoding';
 
 // export interface IMUStateInfo {
 //     gx: number;
@@ -38,7 +39,7 @@ export class CogStateInfo {
     // // Last timestamp for each device
     // private _deviceLastTs: {[devName: string]: DeviceLastTsState} = {};
     
-    public constructor(private _deviceManager: DeviceManager) {
+    public constructor(public _deviceManager: DeviceManager) {
     }
 
     get deviceManager(): DeviceManager {

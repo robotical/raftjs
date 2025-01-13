@@ -91,7 +91,6 @@ export default class RICBLEScanner {
   scanningStop(): void {
 
     RaftLog.debug('scanningStop');
-
     // Emit finished if we were scanning
     RaftLog.debug(`IS SCANNING IN PROGRESS: ${RICBLEScanner._scanInProgress}`);
     if (RICBLEScanner._scanInProgress) {
@@ -126,7 +125,6 @@ export default class RICBLEScanner {
     const ricAlreadyFound = this._discoveredRICs.find(
       item => item.id === scannedDevice!.id,
     );
-
     RaftLog.debug(`✅ Scanning... >> ${scannedDevice}`);
 
     if (ricAlreadyFound) {
@@ -152,6 +150,7 @@ export default class RICBLEScanner {
         scannedDevice.name !== null ? scannedDevice.name : '',
         scannedDevice.id,
         scannedDevice.rssi !== null ? scannedDevice.rssi : -150,
+        scannedDevice.serviceUUIDs
       );
       this._discoveredRICs.push(newDiscoveredRic);
       // send the newly found ric to the state so it can pop-up on the front-end

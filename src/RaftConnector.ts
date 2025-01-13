@@ -245,6 +245,7 @@ export default class RaftConnector {
    * Connect to a Raft device
    *
    * @param {string | object} locator - either a string (WebSocket URL or serial port) or an object (WebBLE)
+   * @param {string} uuid - UUID of the device to connect to
    * @returns Promise<boolean>
    *
    */
@@ -653,7 +654,7 @@ export default class RaftConnector {
     // Connect
     try {
       if (this._raftChannel) {
-        const connected = await this._raftChannel.connect(this._channelConnLocator, this._systemType ? this._systemType.connectorOptions : {});
+        const connected = await this._raftChannel.connect(this._channelConnLocator, this._systemType ? this._systemType.connectorOptions : { });
         if (connected) {
           this._retryIfLostIsConnected = true;
           return true;
