@@ -14,8 +14,6 @@ import { RaftConnEvent, RaftConnEventFn } from "./RaftConnEvents";
 import RaftLog from "./RaftLog";
 import RaftMsgHandler from "./RaftMsgHandler";
 import RaftUtils from "./RaftUtils";
-import RICBLEScanner from "./RaftChannelBLEScanner.native";
-import { ConnectorOptions } from "./RaftSystemType";
 import RaftChannelBLEScanner from "./RaftChannelBLEScanner.native";
 import { DiscoveredDevice } from "./RaftTypes";
 
@@ -63,9 +61,6 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
   private _requestedBatchAckSize = 10;
   private _requestedFileBlockSize = 500;
 
-  // Connected device UUID
-  private _connectedDeviceServiceUUID?: string;
-
   constructor() {
     RaftLog.debug('BLEChannel constructor');
 
@@ -82,10 +77,6 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     this._bleSubscrOnStateChange = _bleManager.onStateChange(state => {
       this._onBLEStateChange(state);
     }, true);
-  }
-
-  setConnectedDeviceUUID(serviceUUID: string) {
-    this._connectedDeviceServiceUUID = serviceUUID;
   }
 
   getBleManager(): BleManager {

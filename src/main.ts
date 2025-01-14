@@ -24,6 +24,7 @@ export { default as RaftStreamHandler } from './RaftStreamHandler';
 export { default as RaftSystemUtils } from './RaftSystemUtils';
 export { default as RaftUtils } from './RaftUtils';
 export { default as RaftSysTypeManager } from './RaftSysTypeManager';
+export { default as RaftDeviceMgrIF } from './RaftDeviceMgrIF';
 export { DeviceManager as RaftDeviceManager } from './RaftDeviceManager';
 
 export * from './RaftTypes';
