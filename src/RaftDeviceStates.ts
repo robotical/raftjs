@@ -30,7 +30,7 @@ export function deviceAttrGetLatestFormatted(attrState: DeviceAttributeState): s
             decimalPlaces = parseInt(parts[1], 10);
         }
         const formattedNumber = value.toFixed(decimalPlaces);
-        let fieldWidth = parseInt(parts[0], 10);
+        const fieldWidth = parseInt(parts[0], 10);
         return fieldWidth ? formattedNumber.padStart(fieldWidth, ' ') : formattedNumber;
     } else if (format.endsWith('x')) {
         // Hexadecimal formatting
@@ -51,6 +51,7 @@ export interface DeviceAttributeState {
     name: string;
     newAttribute: boolean;
     newData: boolean;
+    numNewValues: number;
     values: number[];
     units: string;
     range: number[];
@@ -76,6 +77,9 @@ export interface DeviceState {
     deviceIsNew: boolean;
     stateChanged: boolean;
     isOnline: boolean;
+    deviceAddress: string;
+    deviceType: string;
+    busName: string;
 }
 
 export class DevicesState {
@@ -83,6 +87,6 @@ export class DevicesState {
 }
 
 // Add the getDeviceKey method to generate a composite key
-export function getDeviceKey(busName: string, devAddr: string): string {
-    return `${busName}_${devAddr}`;
+export function getDeviceKey(busName: string, devAddr: string, devType: string): string {
+    return `${busName}_${devAddr}_${devType}`;
 }

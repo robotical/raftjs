@@ -7,7 +7,6 @@
 //
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import { DataType } from "python-struct";
 import { DeviceTypeAction } from "./RaftDeviceInfo";
 import { DeviceAttributeState, DevicesState, DeviceState } from "./RaftDeviceStates";
 
@@ -17,12 +16,18 @@ export default interface RaftDeviceMgrIF {
     getDevicesState(): DevicesState;
     getDeviceState(deviceKey: string): DeviceState;
 
+    // Settings
+    setMaxDataPointsToStore(maxDataPointsToStore: number): void;
+
     // Callbacks
-    onNewDevice(callback: (deviceKey: string, state: DeviceState) => void): void;
-    onNewDeviceAttribute(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void;
-    onNewAttributeData(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void;
+    addNewDeviceCallback(callback: (deviceKey: string, state: DeviceState) => void): void;
+    removeNewDeviceCallback(callback: (deviceKey: string, state: DeviceState) => void): void;
+    addNewAttributeCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void;
+    removeNewAttributeCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void;
+    addAttributeDataCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void;
+    removeAttributeDataCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void;
 
     // Send action to device
-    sendAction(deviceKey: string, action: DeviceTypeAction, data: DataType[]): void;
-    sendCompoundAction(deviceKey: string, action: DeviceTypeAction, data: DataType[][]): void;
+    sendAction(deviceKey: string, action: DeviceTypeAction, data: number[]): void;
+    sendCompoundAction(deviceKey: string, action: DeviceTypeAction, data: number[][]): void;
 }

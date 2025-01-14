@@ -23,9 +23,8 @@ export { default as RaftMsgHandler } from './RaftMsgHandler'
 export { default as RaftStreamHandler } from './RaftStreamHandler';
 export { default as RaftSystemUtils } from './RaftSystemUtils';
 export { default as RaftUtils } from './RaftUtils';
-export { DeviceManager } from './RaftDeviceManager';
+export { default as RaftSysTypeManager } from './RaftSysTypeManager';
 export { DeviceManager as RaftDeviceManager } from './RaftDeviceManager';
-
 
 export * from './RaftTypes';
 export * from './RaftSystemType';

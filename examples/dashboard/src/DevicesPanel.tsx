@@ -28,19 +28,20 @@ export default function DevicesPanel(props: DevicesPanelProps) {
         const onNewDevice = (deviceKey: string, newDeviceState: DeviceState) => {
             setLastUpdated(Date.now());
         };
-        deviceManager.onNewDevice(onNewDevice);
+        deviceManager.addNewDeviceCallback(onNewDevice);
 
         const onNewAttribute = (deviceKey: string, attribute: DeviceAttributeState) => {
             setLastUpdated(Date.now());
         }
-        deviceManager.onNewDeviceAttribute(onNewAttribute);
+        deviceManager.addNewAttributeCallback(onNewAttribute);
 
         const onNewAttributeData = (deviceKey: string, attribute: DeviceAttributeState) => {
             setLastUpdated(Date.now());
+            // console.log(`New attribute data: ${deviceKey} ${attribute.name} ${attribute.values.length}`);
         }
-        deviceManager.onNewAttributeData(onNewAttributeData);
+        deviceManager.addAttributeDataCallback(onNewAttributeData);
 
-    }, [lastUpdated]);
+    }, []);
 
     const deviceManager = connManager.getConnector().getSystemType()?.deviceMgrIF;
     let devicesState: DevicesState = {};

@@ -157,9 +157,9 @@ export default class RaftConnector {
   }
 
   /**
- * Get connection locator
- * @returns string | object - connection locator
- * */
+   * Get connection locator
+   * @returns string | object - connection locator
+   * */
   getConnLocator(): any | null {
     return this._raftChannel ? this._raftChannel.getConnectedLocator() : null;
   }
@@ -245,7 +245,6 @@ export default class RaftConnector {
    * Connect to a Raft device
    *
    * @param {string | object} locator - either a string (WebSocket URL or serial port) or an object (WebBLE)
-   * @param {string} uuid - UUID of the device to connect to
    * @returns Promise<boolean>
    *
    */
@@ -354,7 +353,7 @@ export default class RaftConnector {
       return await this._raftMsgHandler.sendRICRESTURL<RaftOKFail>(commandName, bridgeID);
     } catch (error) {
       RaftLog.warn(`sendRICRESTMsg failed ${error}`);
-      return new RaftOKFail();
+      return { rslt: 'fail' };
     }
   }
 

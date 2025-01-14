@@ -15,29 +15,27 @@ import RaftLog from "./RaftLog";
 import RaftMsgHandler from "./RaftMsgHandler";
 import RaftUtils from "./RaftUtils";
 import RICBLEScanner from "./RaftChannelBLEScanner.native";
-import { DiscoveredRIC } from "./RaftTypes";
 import { ConnectorOptions } from "./RaftSystemType";
+import RaftChannelBLEScanner from "./RaftChannelBLEScanner.native";
+import { DiscoveredDevice } from "./RaftTypes";
 
 const _bleManager = new BleManager();
 
 export default class RaftChannelPhoneBLE implements RaftChannel {
-  // BLE UUIDS
-  public static ServiceUUID = "aa76677e-9cfd-4626-a510-0d305be57c8d";
-  public static CogServiceUUID = "da903f65-d5c2-4f4d-a065-d1aade7af874";
-  public static CmdUUID = "aa76677e-9cfd-4626-a510-0d305be57c8e";
-  public static RespUUID = "aa76677e-9cfd-4626-a510-0d305be57c8f";
-
-  // BleManager
-
 
   // Conn event fn
   private _onConnEvent: RaftConnEventFn | null = null;
 
-  // BLE Scanner
-  _bleScanner: RICBLEScanner;
+  // Default command and response UUIDs
+  _cmdUUID = 'aa76677e-9cfd-4626-a510-0d305be57c8e';
+  _respUUID = 'aa76677e-9cfd-4626-a510-0d305be57c8f';
+  _serviceUUIDs = ['aa76677e-9cfd-4626-a510-0d305be57c8d', 'da903f65-d5c2-4f4d-a065-d1aade7af874'];
 
-  // RIC to connect to using BLE
-  _ricToConnectTo: DiscoveredRIC | null = null;
+  // BLE Scanner
+  _bleScanner: RaftChannelBLEScanner;
+
+  // Device to connect to using BLE
+  _deviceToConnectTo: DiscoveredDevice | null = null;
 
   // Handle BLE disconnection through retry
   // May be set after connection checking (e.g. using LEDs)
@@ -50,7 +48,6 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
   _bleSubscrOnStateChange: Subscription | null = null;
   _bleDevice: Device | null = null;
 
-
   // MTU (Maximum Transmission Unit) size to request
   MTU_SIZE_TO_REQUEST = 512;
 
@@ -61,10 +58,6 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
   private _msgTxTimeLast = Date.now();
   private _msgTxMinTimeBetweenMs = 1;
   private readonly maxRetries = 1;
-
-  // Connected flag and retries
-  private _isConnected = false;
-  // private readonly _maxConnRetries = 3;
 
   // File Handler parameters
   private _requestedBatchAckSize = 10;
@@ -79,9 +72,9 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     // _bleManager.setLogLevel(LogLevel.Verbose);
 
     // Scanner
-    this._bleScanner = new RICBLEScanner(
+    this._bleScanner = new RaftChannelBLEScanner(
       _bleManager,
-      [RaftChannelPhoneBLE.ServiceUUID, RaftChannelPhoneBLE.CogServiceUUID],
+      this._serviceUUIDs,
       this.scanningEvent.bind(this),
     );
 
@@ -107,7 +100,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
 
   // isConnected
   isConnected(): boolean {
-    return this._bleDevice !== null && this._isConnected;
+    return this._bleDevice !== null;
   }
 
   setOnConnEvent(connEventFn: RaftConnEventFn): void {
@@ -132,7 +125,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     this._retryConnectionIfLost = retry;
   }
 
-  async discoveryStart(uuid?: string, tries = 10): Promise<boolean> {
+  async discoveryStart(uuids: string[], tries = 10): Promise<boolean> {
     if (tries <= 0) {
       RaftLog.debug(`BLEChannel discoveryStart failed after 5 tries`);
       return false;
@@ -145,10 +138,10 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     if (state !== State.PoweredOn) {
       RaftLog.debug(`BLEChannel discoveryStart waiting for BLE powered on`);
       await new Promise(resolve => setTimeout(resolve, 500));
-      return this.discoveryStart(uuid, tries - 1);
+      return this.discoveryStart(uuids, tries - 1);
     }
     // Start scanning
-    await this._bleScanner.scanningStart(uuid);
+    await this._bleScanner.scanningStart(uuids);
 
     // Event
     RaftLog.debug(`BLEChannel discoveryStart emitting BLE_SCANNING_STARTED`);
@@ -219,19 +212,16 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
    * @returns boolean (true if connected)
    *
    */
-  async connect(discoveredRIC: DiscoveredRIC, _connectorOptions: ConnectorOptions): Promise<boolean> {
-    RaftLog.debug('BLEChannel requested connection ' + JSON.stringify(discoveredRIC));
-    this._connectedDeviceServiceUUID = discoveredRIC.serviceUUIDs ? discoveredRIC.serviceUUIDs[0] : undefined;
-
+  async connect(discoveredDevice: DiscoveredDevice): Promise<boolean> {
+    RaftLog.debug('BLEChannel requested connection');
     this._retryConnectionIfLost = false;
     this._bleScanner.scanningStop();
 
-
     // Now connecting
-    this.emit(RaftConnEvent.CONN_CONNECTING, { deviceId: discoveredRIC.id });
+    this.emit(RaftConnEvent.CONN_CONNECTING, { deviceId: discoveredDevice.id });
 
     // Connect
-    this._ricToConnectTo = discoveredRIC;
+    this._deviceToConnectTo = discoveredDevice;
     const connOk = await this._configDeviceConnection();
 
     // Check if ok
@@ -243,8 +233,8 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
 
     // Emit success
     this.emit(RaftConnEvent.CONN_CONNECTED, {
-      deviceId: this._ricToConnectTo.id,
-      name: this._ricToConnectTo.name,
+      deviceId: this._deviceToConnectTo.id,
+      name: this._deviceToConnectTo.name,
     });
     return true;
   }
@@ -258,9 +248,9 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
   async disconnect(): Promise<void> {
     RaftLog.debug('BLEChannel disconnect requested');
     this._retryConnectionIfLost = false;
-    RaftLog.debug(`this._ricToConnectTo  ${this._ricToConnectTo}`);
-    const connectedRIC = this._ricToConnectTo;
-    this._ricToConnectTo = null;
+    RaftLog.debug(`this._ricToConnectTo  ${this._deviceToConnectTo}`);
+    const connectedRIC = this._deviceToConnectTo;
+    this._deviceToConnectTo = null;
 
     // this._invalidateConnectionInfo(); // //
 
@@ -270,11 +260,9 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
       this._bleSubscrOnDisconnect = null;
     }
     // Disconnect from the connected device
-    if (!this._connectedDeviceServiceUUID) {
-      RaftLog.error('BLEChannel disconnect - no connected device service UUID');
-      return;
-    }
-    const connMarties = await _bleManager.connectedDevices([this._connectedDeviceServiceUUID]);
+    const connMarties = await _bleManager.connectedDevices(
+      this._serviceUUIDs
+    );
     if (connMarties.length == 0) {
       RaftLog.debug('BLEChannel disconnect - no devices connected');
     } else {
@@ -301,7 +289,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
    */
   async _configDeviceConnection(): Promise<boolean> {
     // Check there is a RIC to connect to
-    if (this._ricToConnectTo === null) {
+    if (this._deviceToConnectTo === null) {
       return false;
     }
 
@@ -309,7 +297,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     for (let connRetry = 0; connRetry < 5; connRetry++) {
       try {
         deviceConnected = await _bleManager.connectToDevice(
-          this._ricToConnectTo.id,
+          this._deviceToConnectTo.id,
           {
             timeout: 3000,
           },
@@ -346,7 +334,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     // Request high-priority connection
     try {
       await _bleManager.requestConnectionPriorityForDevice(
-        this._ricToConnectTo.id,
+        this._deviceToConnectTo.id,
         ConnectionPriority.High,
       );
       RaftLog.debug(
@@ -373,14 +361,10 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     }
     // Monitor the inbound characteristic
     try {
-      if (this._bleDevice) {
-        if (!this._connectedDeviceServiceUUID) {
-          RaftLog.error('BLEChannel _configDeviceConnection - no connected device service UUID');
-          return false;
-        }
+      if (this._bleDevice && this._bleDevice.serviceUUIDs) {
         this._bleSubscrOnRx = this._bleDevice.monitorCharacteristicForService(
-          this._connectedDeviceServiceUUID,
-          RaftChannelPhoneBLE.RespUUID,
+          this._bleDevice.serviceUUIDs[0],
+          this._respUUID,
           (error: BleError | null, characteristic: Characteristic | null) => {
             this._onMsgRx(error, characteristic);
           },
@@ -450,15 +434,15 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
           // Check if scan in progress - and stop reconn attempts if so
           const scanInProgress = this._bleScanner.isScanInProgress();
           RaftLog.debug(
-            `onDeviceDisconnected considering reconnection RICToConnectTo ${this._ricToConnectTo?.name} scanInProgress ${scanInProgress} retryConnectionIfLost ${this._retryConnectionIfLost}`,
+            `onDeviceDisconnected considering reconnection RICToConnectTo ${this._deviceToConnectTo?.name} scanInProgress ${scanInProgress} retryConnectionIfLost ${this._retryConnectionIfLost}`,
           );
           if (
             !this._retryConnectionIfLost ||
             scanInProgress ||
-            !this._ricToConnectTo
+            !this._deviceToConnectTo
           ) {
             RaftLog.debug(
-              `onDeviceDisconnected DISCONNECTED_RIC RICToConnectTo ${this._ricToConnectTo?.name} scanInProgress ${scanInProgress} retryConnectionIfLost ${this._retryConnectionIfLost}`,
+              `onDeviceDisconnected DISCONNECTED_RIC RICToConnectTo ${this._deviceToConnectTo?.name} scanInProgress ${scanInProgress} retryConnectionIfLost ${this._retryConnectionIfLost}`,
             );
             if (this._retryConnectionIfLost) {
               // this.emit(RaftConnEvent.BLE_DISCONNECTED_RIC);
@@ -469,7 +453,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
           }
           if (await this._configDeviceConnection()) {
             RaftLog.debug(
-              `onDeviceDisconnected successful reconn RICToConnectTo ${this._ricToConnectTo?.name}`,
+              `onDeviceDisconnected successful reconn RICToConnectTo ${this._deviceToConnectTo?.name}`,
             );
 
             // Indicate connection issue resolved
@@ -479,7 +463,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
             return;
           }
           RaftLog.debug(
-            `onDeviceDisconnected retrying reconn RICToConnectTo ${this._ricToConnectTo?.name}`,
+            `onDeviceDisconnected retrying reconn RICToConnectTo ${this._deviceToConnectTo?.name}`,
           );
         }
       },
@@ -510,7 +494,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     const rxFrame = RaftUtils.atob(msgFrameBase64!);
 
     // Debug
-    // RaftLog.debug('_onMsgRx from BLE ' + RICUtils.bufferToHex(rxFrame));
+    // RaftLog.debug('_onMsgRx from BLE ' + RaftUtils.bufferToHex(rxFrame));
 
     // Send
     if (rxFrame !== null && this._raftMsgHandler) {
@@ -545,17 +529,13 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
       const msgFrameBase64 = RaftUtils.btoa(msg);
 
       try {
-        if (!this._connectedDeviceServiceUUID) {
-          RaftLog.error('BLEChannel sendTxMsg - no connected device service UUID');
-          return false;
-        }
         await this._bleDevice.writeCharacteristicWithoutResponseForService(
-          this._connectedDeviceServiceUUID,
-          RaftChannelPhoneBLE.CmdUUID,
+          this._bleDevice.serviceUUIDs ? this._bleDevice.serviceUUIDs[0] : this._serviceUUIDs[0],
+          this._cmdUUID,
           msgFrameBase64!,
         );
         return true;
-      } catch (error) {
+      } catch {
         if (retryIdx === this.maxRetries - 1) {
           RaftLog.debug(`sendTxMsg failed after ${this.maxRetries} attempts`);
           return false;
@@ -588,17 +568,13 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
       const msgFrameBase64 = RaftUtils.btoa(msg);
 
       try {
-        if (!this._connectedDeviceServiceUUID) {
-          RaftLog.error('BLEChannel sendTxMsgNoAwait - no connected device service UUID');
-          return false;
-        }
         this._bleDevice!.writeCharacteristicWithoutResponseForService(
-          this._connectedDeviceServiceUUID,
-          RaftChannelPhoneBLE.CmdUUID,
+          this._bleDevice.serviceUUIDs ? this._bleDevice.serviceUUIDs[0] : this._serviceUUIDs[0],
+          this._cmdUUID,
           msgFrameBase64!,
         );
         return true;
-      } catch (error) {
+      } catch {
         if (retryIdx === this.maxRetries - 1) {
           RaftLog.debug(`sendTxMsgNoAwait failed after ${this.maxRetries} attempts`);
           return false;

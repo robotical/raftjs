@@ -17,50 +17,39 @@ const DeviceActionsForm: React.FC<DeviceActionsTableProps> = ({ deviceKey }) => 
     const deviceManager = connManager.getConnector().getSystemType()?.deviceMgrIF;
     const [deviceActions, setDeviceActions] = useState<DeviceTypeAction[]>([]);
     const [inputValues, setInputValues] = useState<InputValues>({});
-    const [lastSentValues, setLastSentValues] = useState<InputValues>({});
-    const sendTimer = useRef<NodeJS.Timeout | null>(null);
-    
+
     useEffect(() => {
         if (!deviceManager) {
             return;
         }
-        const deviceState = deviceManager.getDeviceState(deviceKey);
-        const { deviceTypeInfo } = deviceState;
-        const actions: DeviceTypeAction[] = deviceTypeInfo?.actions || [];
-        setDeviceActions(actions);
-        // Initialize input values
-        const initialValues: InputValues = actions.reduce((acc, action) => {
-            acc = { ...acc, [action.n]: action.d ? action.d : (action.r ? action.r[0] | 0 : 0) };
-            return acc;
-        }, {});
-        setInputValues(initialValues);
-        queueSendAction(initialValues);
+        // Wait a little while inline for the device to be ready
+        setTimeout(() => {
+            const deviceState = deviceManager.getDeviceState(deviceKey);
+            const { deviceTypeInfo } = deviceState;
+            const actions: DeviceTypeAction[] = deviceTypeInfo?.actions || [];
+            setDeviceActions(actions);
+            // Initialize input values
+            const initialValues: InputValues = actions.reduce((acc, action) => {
+                acc[action.n] =
+                    action.d ??
+                    (action.r
+                        ? action.r.length > 1
+                            ? (action.r[1] + action.r[0]) / 2
+                            : 0
+                        : 0);
+                return acc;
+            }, {} as InputValues);
+            setInputValues(initialValues);
+        }, 1000);
     }, [deviceKey]);
 
     const handleInputChange = (name: string, value: number) => {
-        const newValues = { ...inputValues, [name]: value };
-        setInputValues(newValues);
-        queueSendAction(newValues);
+        setInputValues((prevValues) => ({
+            ...prevValues,
+            [name]: value,
+        }));
     };
 
-    const queueSendAction = (newValues: InputValues) => {
-        if (sendTimer.current) {
-            clearTimeout(sendTimer.current);
-        }
-        // console.log(`queueSendAction new values ${JSON.stringify(newValues)}`);
-        sendTimer.current = setTimeout(() => {
-            deviceActions.forEach(action => {
-                const currentValue = newValues[action.n];
-                const lastSentValue = lastSentValues[action.n];
-                if (currentValue !== lastSentValue) {
-                    // console.log(`queueSendAction timeout ${action.n} ${currentValue}`);
-                    handleSendAction(action, currentValue);
-                    setLastSentValues(prev => ({ ...prev, [action.n]: currentValue }));
-                }
-            });
-        }, 300);
-    };
-    
     const handleSendAction = (action: DeviceTypeAction, value: number) => {
         // Send action to device
         if (!deviceManager) {
@@ -102,28 +91,39 @@ const DeviceActionsForm: React.FC<DeviceActionsTableProps> = ({ deviceKey }) => 
                         } else {
                             return (
                                 <tr key={action.n}>
-                                    <td>{action.n}</td> 
+                                    <td>{action.n}</td>
                                     <td>
-                                        {action.t ? 
-                                            <input type="number" 
-                                                min={action.r?.[0] ?? 0} 
-                                                max={action.r?.[1] ?? 100} 
-                                                value={inputValues[action.n]} 
-                                                onChange={e => {
-                                                        console.log(`input change ${action.n} ${e.target.value}`)
-                                                        handleInputChange(action.n, parseInt(e.target.value));
-                                                    }}
+                                        {action.t ? (
+                                            <input
+                                                type="number"
+                                                min={action.r?.[0] ?? 0}
+                                                max={action.r?.[1] ?? 100}
+                                                value={inputValues[action.n]}
+                                                onChange={(e) =>
+                                                    handleInputChange(
+                                                        action.n,
+                                                        parseInt(e.target.value, 10)
+                                                    )
+                                                }
                                             />
-                                            : <></>
-                                        }
+                                        ) : null}
                                     </td>
                                     <td>
-                                        <button onClick={() => handleSendAction(action, inputValues[action.n])}>Send</button>
+                                        <button
+                                            onClick={() =>
+                                                handleSendAction(
+                                                    action,
+                                                    inputValues[action.n]
+                                                )
+                                            }
+                                        >
+                                            Send
+                                        </button>
                                     </td>
                                 </tr>
                             );
                         }
-                    })}                        
+                    })}
                 </tbody>
             </table>
         </div>

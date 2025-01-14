@@ -571,7 +571,6 @@ export default class RaftMsgHandler {
     // if (msgRsltCode === RaftMsgResultCode.MESSAGE_RESULT_OK) {
     const resolve = this._msgTrackInfos[msgNum].resolve;
     if (resolve) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       RaftLog.verbose(`_msgCompleted msgNum ${msgNum} result ${msgRsltCode.toString()} ${JSON.stringify(msgRsltObj)}`);
       (resolve as ((arg: object | null) => void))(msgRsltObj);
     }
@@ -679,7 +678,7 @@ export default class RaftMsgHandler {
     // RICREST protocol
     msgBuf[msgBufPos++] = RICRESTElemCode.RICREST_ELEM_CODE_FILEBLOCK;
 
-    // Buffer header
+    // Header
     msgBuf[msgBufPos++] = streamID & 0xff;
     msgBuf[msgBufPos++] = (blockStart >> 16) & 0xff;
     msgBuf[msgBufPos++] = (blockStart >> 8) & 0xff;
