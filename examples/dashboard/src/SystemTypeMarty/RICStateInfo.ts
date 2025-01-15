@@ -50,19 +50,38 @@ export class RICStateInfo implements RaftDeviceMgrIF {
             deviceAttributes: {},
             deviceIsNew: false,
             stateChanged: false,
-            isOnline: false
+            isOnline: false,
+            deviceAddress: "",
+            deviceType: "",
+            busName: ""
         };
     }
 
-    onNewDevice(callback: (deviceKey: string, state: DeviceState) => void): void {
+    setMaxDataPointsToStore(maxDataPointsToStore: number): void {
         // TODO - implement if RICStateInfo is to be used as a DeviceMgr
     }
 
-    onNewDeviceAttribute(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
+    addNewDeviceCallback(callback: (deviceKey: string, state: DeviceState) => void): void {
         // TODO - implement if RICStateInfo is to be used as a DeviceMgr
     }
 
-    onNewAttributeData(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
+    removeNewDeviceCallback(callback: (deviceKey: string, state: DeviceState) => void): void {
+        // TODO - implement if RICStateInfo is to be used as a DeviceMgr
+    }
+
+    addNewAttributeCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
+        // TODO - implement if RICStateInfo is to be used as a DeviceMgr
+    }
+
+    removeNewAttributeCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
+        // TODO - implement if RICStateInfo is to be used as a DeviceMgr
+    }
+
+    addAttributeDataCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
+        // TODO - implement if RICStateInfo is to be used as a DeviceMgr
+    }
+
+    removeAttributeDataCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void {
         // TODO - implement if RICStateInfo is to be used as a DeviceMgr
     }
 

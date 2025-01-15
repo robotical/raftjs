@@ -152,7 +152,7 @@ export default class RICSystemUtils {
       // Result
       console.log("Set calibration flag to true");
       const rslt = new RaftOKFail();
-      rslt.set(overallResult);
+      rslt.rslt = overallResult ? "ok" : "fail";
       return rslt;
     }
     return false;

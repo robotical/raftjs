@@ -12,6 +12,9 @@ export default class SystemTypeMarty implements RaftSystemType {
   firmwareDestName = "ricfw";
   normalFileDestName = "fs";
   connectorOptions = {wsSuffix: "ws", bleConnItvlMs: 7.5};
+  BLEServiceUUIDs = ["aa76677e-9cfd-4626-a510-0d305be57c8d"];
+  BLECmdUUID = "aa76677e-9cfd-4626-a510-0d305be57c8e";
+  BLERespUUID = "aa76677e-9cfd-4626-a510-0d305be57c8f";
 
   // LED Pattern checker
   private _ledPatternChecker: RICLEDPatternChecker = new RICLEDPatternChecker();
@@ -21,7 +24,7 @@ export default class SystemTypeMarty implements RaftSystemType {
 
   // Latest data from servos, IMU, etc
   private _ricStateInfo: RICStateInfo = new RICStateInfo();
-  getRICStateInfo(): RICStateInfo {
+  getStateInfo(): RICStateInfo {
     return this._ricStateInfo;
   }
 
@@ -95,7 +98,7 @@ export default class SystemTypeMarty implements RaftSystemType {
 
   // Other message type
   rxOtherMsgType(payload: Uint8Array, frameTimeMs: number) {
-    // RICLog.debug(`onRxROSSerialMsg payload ${RICUtils.bufferToHex(payload)}`);
+    // RICLog.debug(`onRxROSSerialMsg payload ${RaftUtils.bufferToHex(payload)}`);
     RaftLog.verbose(`onRxROSSerialMsg payloadLen ${payload.length}`);
     const topicIDs = this._ricStateInfo.updateFromROSSerialMsg(payload, this._commsStats, this._addOnManager, frameTimeMs);
 

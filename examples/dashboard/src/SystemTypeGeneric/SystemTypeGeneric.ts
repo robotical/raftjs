@@ -1,17 +1,17 @@
 import { RaftSubscribeForUpdatesCBType, RaftSystemType } from "../../../../src/RaftSystemType";
 import { RaftEventFn, RaftLog, RaftOKFail, RaftPublishEvent, RaftPublishEventNames, RaftSystemUtils } from "../../../../src/main";
-import { CogStateInfo } from "./CogStateInfo";
+import { StateInfoGeneric } from "./StateInfoGeneric";
 import { DeviceManager } from "../../../../src/RaftDeviceManager";
 
-const SUBSCRIBE_BINARY_MSGS = true;
+const SUBSCRIBE_BINARY_MSGS = false;
 
-export default class SystemTypeCog implements RaftSystemType {
-    nameForDialogs = "Robotical Cog";
-    defaultWiFiHostname = "Cog";
+export default class SystemTypeGeneric implements RaftSystemType {
+    nameForDialogs = "Generic System";
+    defaultWiFiHostname = "Generic";
     firmwareDestName = "ricfw";
     normalFileDestName = "fs";
     connectorOptions = {wsSuffix: "wsjson", bleConnItvlMs: 50};
-    BLEServiceUUIDs = ["da903f65-d5c2-4f4d-a065-d1aade7af874"];
+    BLEServiceUUIDs = ["aa76677e-9cfd-4626-a510-0d305be57c8d", "da903f65-d5c2-4f4d-a065-d1aade7af874"];
     BLECmdUUID = "aa76677e-9cfd-4626-a510-0d305be57c8e";
     BLERespUUID = "aa76677e-9cfd-4626-a510-0d305be57c8f";
 
@@ -32,17 +32,17 @@ export default class SystemTypeCog implements RaftSystemType {
     }
 
     // Latest data from servos, IMU, etc
-    private _stateInfo: CogStateInfo = new CogStateInfo(this._deviceManager);
-    getStateInfo(): CogStateInfo {
+    private _stateInfo: StateInfoGeneric = new StateInfoGeneric(this._deviceManager);
+    getStateInfo(): StateInfoGeneric {
       return this._stateInfo;
     }
 
     // Subscribe for updates
     subscribeForUpdates: RaftSubscribeForUpdatesCBType | null = async (systemUtils: RaftSystemUtils, enable: boolean) => {
       // Subscription rate
-      const topic = SUBSCRIBE_BINARY_MSGS ? "devbin" : "devjson";
       const subscribeRateHz = 0.1;
       try {
+        const topic = SUBSCRIBE_BINARY_MSGS ? "devbin" : "devjson";
         const subscribeDisable = '{"cmdName":"subscription","action":"update",' +
           '"pubRecs":[' +
           `{"name":"${topic}","rateHz":0,}` +
