@@ -61,6 +61,9 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
   private _requestedBatchAckSize = 10;
   private _requestedFileBlockSize = 500;
 
+  // Connected device UUID
+  private _connectedDeviceServiceUUID?: string;
+
   constructor() {
     RaftLog.debug('BLEChannel constructor');
 
@@ -77,6 +80,10 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     this._bleSubscrOnStateChange = _bleManager.onStateChange(state => {
       this._onBLEStateChange(state);
     }, true);
+  }
+
+  setConnectedDeviceUUID(serviceUUID: string) {
+    this._connectedDeviceServiceUUID = serviceUUID;
   }
 
   getBleManager(): BleManager {
@@ -204,7 +211,9 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
    *
    */
   async connect(discoveredDevice: DiscoveredDevice): Promise<boolean> {
-    RaftLog.debug('BLEChannel requested connection');
+    RaftLog.debug('BLEChannel requested connection ' + JSON.stringify(discoveredDevice));
+    this._connectedDeviceServiceUUID = discoveredDevice.serviceUUIDs ? discoveredDevice.serviceUUIDs[0] : undefined;
+
     this._retryConnectionIfLost = false;
     this._bleScanner.scanningStop();
 
@@ -352,9 +361,13 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     }
     // Monitor the inbound characteristic
     try {
-      if (this._bleDevice && this._bleDevice.serviceUUIDs) {
+      if (this._bleDevice) {
+        if (!this._connectedDeviceServiceUUID) {
+          RaftLog.error('BLEChannel _configDeviceConnection - no connected device service UUID');
+          return false;
+        }
         this._bleSubscrOnRx = this._bleDevice.monitorCharacteristicForService(
-          this._bleDevice.serviceUUIDs[0],
+          this._connectedDeviceServiceUUID,
           this._respUUID,
           (error: BleError | null, characteristic: Characteristic | null) => {
             this._onMsgRx(error, characteristic);
@@ -520,8 +533,12 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
       const msgFrameBase64 = RaftUtils.btoa(msg);
 
       try {
-        await this._bleDevice.writeCharacteristicWithoutResponseForService(
-          this._bleDevice.serviceUUIDs ? this._bleDevice.serviceUUIDs[0] : this._serviceUUIDs[0],
+        if (!this._connectedDeviceServiceUUID) {
+          RaftLog.error('BLEChannel sendTxMsg - no connected device service UUID');
+          return false;
+        }
+        await this._bleDevice!.writeCharacteristicWithoutResponseForService(
+          this._connectedDeviceServiceUUID,
           this._cmdUUID,
           msgFrameBase64!,
         );
@@ -559,8 +576,12 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
       const msgFrameBase64 = RaftUtils.btoa(msg);
 
       try {
+        if (!this._connectedDeviceServiceUUID) {
+          RaftLog.error('BLEChannel sendTxMsgNoAwait - no connected device service UUID');
+          return false;
+        }
         this._bleDevice!.writeCharacteristicWithoutResponseForService(
-          this._bleDevice.serviceUUIDs ? this._bleDevice.serviceUUIDs[0] : this._serviceUUIDs[0],
+          this._connectedDeviceServiceUUID,
           this._cmdUUID,
           msgFrameBase64!,
         );

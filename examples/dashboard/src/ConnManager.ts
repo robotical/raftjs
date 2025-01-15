@@ -1,8 +1,15 @@
 import { RaftConnector, RaftEventFn, RaftLog, RaftSystemUtils, RaftSysTypeManager } from "../../../src/main";
 import SettingsManager from "./SettingsManager";
+import SystemTypeCog from "./SystemTypeCog/SystemTypeCog";
+import SystemTypeGeneric from "./SystemTypeGeneric/SystemTypeGeneric";
+import SystemTypeMarty from "./SystemTypeMarty/SystemTypeMarty";
 
 const sysTypeManager = RaftSysTypeManager.getInstance();
 const settingsManager = SettingsManager.getInstance();
+
+sysTypeManager.addSystemType('Cog', () => new SystemTypeCog());
+sysTypeManager.addSystemType('Marty', () => new SystemTypeMarty());
+sysTypeManager.addDefaultSystemType(() => new SystemTypeGeneric());
 
 export default class ConnManager {
 
