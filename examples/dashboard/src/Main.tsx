@@ -41,12 +41,14 @@ export default function Main() {
     localStorage.getItem('lastIpAddress') || ''
   );
 
+  const [serialNo, setSerialNo] = useState<string>('');
+
   const handleConnect = () => {
     if (ipAddress.trim() === '') {
       console.error('No IP address entered');
       return;
     }
-    connManager.connect('WebSocket', ipAddress, []);
+    connManager.connect('WebSocket', ipAddress, [], null);
     localStorage.setItem('lastIpAddress', ipAddress);
   };
 
@@ -199,10 +201,18 @@ export default function Main() {
                   </div>
                   <div className="info-box">
                     <h3>WebBLE</h3>
+                    <input
+                      className="serial-no-input"
+                      id="serial-no"
+                      type="text"
+                      placeholder="Serial No (ignored if empty)"
+                      value={serialNo}
+                      onChange={(e) => setSerialNo(e.target.value)}
+                    />
                     <button
                       className="action-button"
                       onClick={() => {
-                        connManager.connect('WebBLE', '', sysTypeManager.getAllServiceUUIDs());
+                        connManager.connect('WebBLE', '', sysTypeManager.getAllServiceUUIDs(), serialNo);
                       }}
                     >
                       Connect
@@ -213,7 +223,7 @@ export default function Main() {
                     <button
                       className="action-button"
                       onClick={() => {
-                        connManager.connect('WebSerial', '', []);
+                        connManager.connect('WebSerial', '', [], null);
                       }}
                     >
                       Connect
