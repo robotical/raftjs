@@ -245,11 +245,13 @@ export class DiscoveredDevice {
   _name = '';
   _id = '';
   _rssi = -150;
-  constructor(localName: string, name: string, id: string, rssi: number) {
+  _serviceUUIDs: string[] | null = [];
+  constructor(localName: string, name: string, id: string, rssi: number, serviceUUIDs: string[] | null) {
     this._localName = localName;
     this._name = name;
     this._id = id;
     this._rssi = rssi;
+    this._serviceUUIDs = serviceUUIDs;
   }
   get name(): string {
     if (this._localName !== null && this._localName.length > 0) {
@@ -267,6 +269,9 @@ export class DiscoveredDevice {
   get rssi(): number {
     if (this._rssi !== null) return this._rssi;
     return -100;
+  }
+  get serviceUUIDs(): string[] | null {
+    return this._serviceUUIDs;
   }
 }
 

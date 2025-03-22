@@ -318,10 +318,12 @@ export default class RaftConnector {
     if (this._raftChannel) {
       // Check if there is a RICREST command to send before disconnecting
       const ricRestCommand = this._raftChannel.ricRestCmdBeforeDisconnect();
-      console.log(`sending RICREST command before disconnect: ${ricRestCommand}`);
       if (ricRestCommand) {
+        console.log(`sending RICREST command before disconnect: ${ricRestCommand}`);
         await this.sendRICRESTMsg(ricRestCommand, {});
       }
+      // Pause a little before disconnecting
+      await new Promise(resolve => setTimeout(resolve, 1000));
       // await this.sendRICRESTMsg("bledisc", {});
       await this._raftChannel.disconnect();
       this._raftChannel = null;
@@ -653,7 +655,7 @@ export default class RaftConnector {
     // Connect
     try {
       if (this._raftChannel) {
-        const connected = await this._raftChannel.connect(this._channelConnLocator, this._systemType ? this._systemType.connectorOptions : {});
+        const connected = await this._raftChannel.connect(this._channelConnLocator, this._systemType ? this._systemType.connectorOptions : { });
         if (connected) {
           this._retryIfLostIsConnected = true;
           return true;

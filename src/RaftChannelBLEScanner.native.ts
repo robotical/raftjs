@@ -145,6 +145,7 @@ export default class RaftChannelBLEScanner {
         scannedDevice.name !== null ? scannedDevice.name : '',
         scannedDevice.id,
         scannedDevice.rssi !== null ? scannedDevice.rssi : -150,
+        scannedDevice.serviceUUIDs,
       );
       this._discoveredDevices.push(newDiscoveredDevice);
       // send the newly found ric to the state so it can pop-up on the front-end

@@ -2,6 +2,7 @@ import { time } from "console";
 import RaftLog from "../../../../src/RaftLog";
 import { DeviceManager } from "../../../../src/RaftDeviceManager";
 import RaftUtils from "../../../../src/RaftUtils";
+import { TextDecoder } from 'text-encoding';
 
 // export interface IMUStateInfo {
 //     gx: number;

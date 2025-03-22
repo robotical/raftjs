@@ -12,16 +12,10 @@ import StatusPanel from './StatusPanel';
 import DevicesPanel from './DevicesPanel';
 import CommandPanel from './CommandPanel';
 import LatencyTestPanel from './LatencyTestPanel';
-import SystemTypeCog from './SystemTypeCog/SystemTypeCog';
-import SystemTypeMarty from './SystemTypeMarty/SystemTypeMarty';
-import SystemTypeGeneric from './SystemTypeGeneric/SystemTypeGeneric';
 import SettingsManager from './SettingsManager';
 
 const sysTypeManager = RaftSysTypeManager.getInstance();
 const connManager = ConnManager.getInstance();
-sysTypeManager.addSystemType('Cog', () => new SystemTypeCog());
-sysTypeManager.addSystemType('Marty', () => new SystemTypeMarty());
-sysTypeManager.addDefaultSystemType(() => new SystemTypeGeneric());
 
 export default function Main() {
   const [connectionStatus, setConnectionStatus] = useState<RaftConnEvent>(

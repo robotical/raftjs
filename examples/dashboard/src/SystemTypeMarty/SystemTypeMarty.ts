@@ -24,7 +24,7 @@ export default class SystemTypeMarty implements RaftSystemType {
 
   // Latest data from servos, IMU, etc
   private _ricStateInfo: RICStateInfo = new RICStateInfo();
-  getRICStateInfo(): RICStateInfo {
+  getStateInfo(): RICStateInfo {
     return this._ricStateInfo;
   }
 
