@@ -13,7 +13,6 @@ import RaftMsgHandler from "./RaftMsgHandler";
 import RaftLog from "./RaftLog";
 import { RaftConnEvent, RaftConnEventFn } from "./RaftConnEvents";
 import { ConnectorOptions } from "./RaftSystemType";
-import { TextDecoder } from 'text-encoding';
 
 type TWebParityType = 'none' | 'even' | 'odd';
 type TWebFlowControlType = 'none' | 'hardware';
