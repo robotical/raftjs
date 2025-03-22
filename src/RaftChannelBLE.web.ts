@@ -98,7 +98,7 @@ export default class RaftChannelBLE implements RaftChannel {
   onDisconnected(event: Event): void {
     const device = event.target as BluetoothDevice;
     RaftLog.debug(`RaftChannelBLE.onDisconnected ${device.name}`);
-    if (this._bleDevice) {
+    if (this._bleDevice && this._eventListenerFn) {
       this._bleDevice.removeEventListener(
         "gattserverdisconnected",
         this._eventListenerFn
