@@ -11,22 +11,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 'Checkout source code'
-        uses: 'actions/checkout@v2'
+      - name: Checkout source code
+        uses: actions/checkout@v2
         with:
           ref: ${{ github.ref }}
-      - name: 'cat package.json'
-        run: cat ./package.json
-      - name: 'Automated Version Bump'
+          fetch-depth: 0  # Needed to push tags
+
+      - name: Use Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '16'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build package
+        run: npm run build-all
+
+      - name: Commit build output
+        run: |
+          git config user.name "Automated Version Bump"
+          git config user.email "gh-action-bump-version@users.noreply.github.com"
+          git add dist/
+          git commit -m "chore: build dist for release" || echo "No changes to commit"
+
+      - name: Automated Version Bump
         id: version-bump
-        uses: 'phips28/gh-action-bump-version@master'
+        uses: phips28/gh-action-bump-version@master
         with:
           tag-prefix: 'v'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: 'cat package.json'
-        run: cat ./package.json
-      - name: 'Output Step'
-        env:
-          NEW_TAG: ${{ steps.version-bump.outputs.newTag }}
-        run: echo "new tag $NEW_TAG"
+
+      - name: Push tags and version commit
+        run: git push --follow-tags origin main
