@@ -601,7 +601,6 @@ export default class RaftConnector {
    * Retry connection
    */
   private _retryConnection(): void {
-
     // Check timeout
     if ((this._retryIfLostDisconnectTime !== null) &&
       (Date.now() - this._retryIfLostDisconnectTime < this._retryIfLostForSecs * 1000)) {
@@ -610,7 +609,7 @@ export default class RaftConnector {
       setTimeout(async () => {
 
         // Try to connect
-        const isConn = await this._connectToChannel();
+        const isConn = await this.connect(this._channelConnLocator);
         if (!isConn) {
           this._retryConnection();
         } else {
