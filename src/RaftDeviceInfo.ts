@@ -86,6 +86,7 @@ export interface DeviceTypeInfo {
     manu: string;
     type: string;
     resp?: DeviceTypePollRespMetadata;
+    clas?: [string];
     actions?: DeviceTypeAction[];
 }
 
