@@ -480,7 +480,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
             const msgHandler = this._systemUtils?.getMsgHandler();
             if (msgHandler) {
                 const msgRslt = await msgHandler.sendRICRESTURL<RaftDevTypeInfoResponse>(cmd);
-                if (msgRslt.rslt === "ok") {
+                if (msgRslt && msgRslt.rslt && msgRslt.rslt === "ok") {
                     this._cachedDeviceTypeRecs[deviceType] = msgRslt.devinfo;
                     return msgRslt.devinfo
                 }
