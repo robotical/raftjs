@@ -34,3 +34,4 @@ export * from './RaftConnEvents';
 export * from './RaftUpdateEvents';
 export * from "./RaftProtocolDefs";
 export * from "./RaftDeviceStates";
+export * from "./RaftDeviceInfo";
