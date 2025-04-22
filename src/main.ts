@@ -16,6 +16,7 @@ export { default as RaftCommsStats } from './RaftCommsStats';
 export { default as RaftConnector } from './RaftConnector';
 export { default as RaftChannel } from './RaftChannel';
 export { default as RaftChannelWebSocket } from './RaftChannelWebSocket';
+export { default as RaftChannelSimulated } from './RaftChannelSimulated';
 export { default as RaftFileHandler } from './RaftFileHandler';
 export { default as RaftLog } from './RaftLog';
 export { default as RaftMiniHDLC } from './RaftMiniHDLC';

@@ -60,6 +60,8 @@ export interface RaftMessageSender {
     msg: Uint8Array,
     sendWithResponse: boolean,
   ): Promise<boolean>;
+  sendTxMsgRaw(msg: string): boolean;
+  sendTxMsgRawAndWaitForReply<T>(msgPayload: Uint8Array): T;
 }
 
 export default class RaftMsgHandler {
@@ -86,6 +88,9 @@ export default class RaftMsgHandler {
 
   // RaftMiniHDLC - handles part of RICSerial protocol
   private _miniHDLC: RaftMiniHDLC;
+
+  // Raw message mode
+  private _rawMsgMode = false;
 
   // Constructor
   constructor(commsStats: RaftCommsStats) {
@@ -120,12 +125,33 @@ export default class RaftMsgHandler {
     // RaftLog.verbose(`handleNewRxMsg len ${rxMsg.length} ${RaftUtils.bufferToHex(rxMsg)}`)
   }
 
+  // This is currently only for testing and simulated channels
+  handleNewRxMsgRaw(rxMsg: Uint8Array, rxMsgType: RaftCommsMsgTypeCode, rxMsgNum: number, rxMsgTimeMs: number): void {
+    // Check message types
+    if (rxMsgType == RaftCommsMsgTypeCode.MSG_TYPE_RESPONSE) {
+      // Convert raw Uint8Array to string assuming UTF-8
+      const restStr = new TextDecoder('utf-8').decode(rxMsg);
+      this._handleResponseMessages(restStr, rxMsgNum);
+    } else if (rxMsgType == RaftCommsMsgTypeCode.MSG_TYPE_REPORT) {
+      // Convert raw Uint8Array to string assuming UTF-8
+      const restStr = new TextDecoder('utf-8').decode(rxMsg);
+      this._handleReportMessages(restStr);
+    } else {
+      this._msgResultHandler?.onRxOtherMsgType(rxMsg, rxMsgTimeMs);
+    }
+  }
+
   reportMsgCallbacksSet(callbackName: string, callback: (report: RaftReportMsg) => void): void {
     this._reportMsgCallbacks.set(callbackName, callback);
   }
 
   reportMsgCallbacksDelete(callbackName: string) {
     this._reportMsgCallbacks.delete(callbackName);
+  }
+
+  setRawMsgMode(isRawMode: boolean): void {
+    this._rawMsgMode = isRawMode;
+    RaftLog.debug(`setRawMsgMode ${isRawMode}`);
   }
 
   _onHDLCFrameDecode(rxMsg: Uint8Array, frameTimeMs: number): void {
@@ -336,6 +362,11 @@ export default class RaftMsgHandler {
       return false;
     }
 
+    // Check for raw message mode (used for testing and simulated channels)
+    if (this._rawMsgMode) {
+      return this._msgSender.sendTxMsgRaw(cmdStr);
+    }
+
     // Put cmdStr into buffer
     const cmdBytes = new Uint8Array(cmdStr.length + 1);
     RaftUtils.addStringToBuffer(cmdBytes, cmdStr, 0);
@@ -404,6 +435,11 @@ export default class RaftMsgHandler {
     // Check there is a sender
     if (!this._msgSender) {
       throw new Error('sendMsgAndWaitForReply failed no sender');
+    }
+
+    // Check for raw message mode (used for testing and simulated channels)
+    if (this._rawMsgMode) {
+      return this._msgSender.sendTxMsgRawAndWaitForReply(msgPayload);
     }
 
     // Frame the message

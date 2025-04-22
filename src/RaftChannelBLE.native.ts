@@ -601,4 +601,16 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
   ricRestCmdBeforeDisconnect(): string | null {
     return "bledisconnect";
   }
+
+  // Method used for testing and simulation should never be called
+  sendTxMsgRaw(): boolean {
+    RaftLog.debug(`sendTxMsgRaw - not implemented`);
+    return false;
+  }
+
+  // Method used for testing and simulation should never be called
+  sendTxMsgRawAndWaitForReply<T>(): T {
+    RaftLog.debug(`sendTxMsgRawAndWaitForReply - not implemented`);
+    return null as T;
+  }
 }

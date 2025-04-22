@@ -12,6 +12,7 @@ import RaftChannel from "./RaftChannel";
 import RaftMsgHandler, { RaftMsgResultCode } from "./RaftMsgHandler";
 import RaftChannelWebSocket from "./RaftChannelWebSocket";
 import RaftChannelWebSerial from "./RaftChannelWebSerial";
+import RaftChannelSimulated from "./RaftChannelSimulated";
 import RaftCommsStats from "./RaftCommsStats";
 import { RaftEventFn, RaftOKFail, RaftFileSendType, RaftFileDownloadResult, RaftProgressCBType, RaftBridgeSetupResp, RaftFileDownloadFn } from "./RaftTypes";
 import RaftSystemUtils from "./RaftSystemUtils";
@@ -219,6 +220,9 @@ export default class RaftConnector {
     } else if (method === 'WebSerial') {
       this._raftChannel = new RaftChannelWebSerial();
       this._channelConnMethod = 'WebSerial';
+    } else if (method === 'Simulated') {
+      this._raftChannel = new RaftChannelSimulated(); 
+      this._channelConnMethod = 'Simulated';
     } else {
       RaftLog.error('Unknown method: ' + method);
       return false;
