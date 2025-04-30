@@ -194,13 +194,13 @@ export default class AttributeHandler {
         // Check for XOR mask
         if ("x" in attrDef) {
             const mask = typeof attrDef.x === "string" ? parseInt(attrDef.x, 16) : attrDef.x as number;
-            attrValues = attrValues.map((value) => value ^ mask);
+            attrValues = attrValues.map((value) => (value >>> 0) ^ mask);
         }
         
         // Check for AND mask
         if ("m" in attrDef) {
             const mask = typeof attrDef.m === "string" ? parseInt(attrDef.m, 16) : attrDef.m as number;
-            attrValues = attrValues.map((value) => (maskOnSignedValue ? this.signExtend(value, mask) : value & mask));
+            attrValues = attrValues.map((value) => (maskOnSignedValue ? this.signExtend(value, mask) : (value >>> 0) & mask));
         }
 
         // Check for a sign-bit
@@ -217,11 +217,11 @@ export default class AttributeHandler {
 
         // Check for bit shift required
         if ("s" in attrDef && attrDef.s) {
-            const bitshift = attrDef.s as number;
+            let bitshift = attrDef.s as number;
             if (bitshift > 0) {
-                attrValues = attrValues.map((value) => (value) >> bitshift);
+                attrValues = attrValues.map((value) => (value >>> 0) >>> bitshift);
             } else if (bitshift < 0) {
-                attrValues = attrValues.map((value) => (value) << -bitshift);
+                attrValues = attrValues.map((value) => (value >>> 0) << -bitshift);
             }
         }
 

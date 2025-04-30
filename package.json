@@ -47,5 +47,8 @@
   "peerDependencies": {
     "react-native-ble-plx": "^3.5.0",
     "react-native": "^0.78.1"
-  }
+  },
+  "files": [
+    "dist/web/**/*"
+  ]
 }
