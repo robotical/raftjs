@@ -75,7 +75,7 @@ export default class RaftMsgHandler {
   private _msgTrackLastCheckIdx = 0;
 
   // report message callback dictionary. Add a callback to subscribe to report messages
-  private _reportMsgCallbacks = new Map<string, (report: RaftReportMsg) => void>();
+  private _reportMsgCallbacks = new Map<string, (report: RaftReportMsg) => Promise<void>>();
 
   // Interface to inform of message results
   private _msgResultHandler: RaftMessageResult | null = null;
@@ -141,7 +141,7 @@ export default class RaftMsgHandler {
     }
   }
 
-  reportMsgCallbacksSet(callbackName: string, callback: (report: RaftReportMsg) => void): void {
+  reportMsgCallbacksSet(callbackName: string, callback: (report: RaftReportMsg) => Promise<void>): void {
     this._reportMsgCallbacks.set(callbackName, callback);
   }
 
@@ -292,7 +292,7 @@ export default class RaftMsgHandler {
       const reportMsg: RaftReportMsg = JSON.parse(restStr);
       reportMsg.timeReceived = Date.now();
       RaftLog.debug(`_handleReportMessages ${JSON.stringify(reportMsg)}`);
-      this._reportMsgCallbacks.forEach((callback) => callback(reportMsg));
+      this._reportMsgCallbacks.forEach(async (callback) => await callback(reportMsg));
     } catch (excp: unknown) {
       if (excp instanceof Error) {
         RaftLog.warn(

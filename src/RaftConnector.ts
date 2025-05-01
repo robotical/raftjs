@@ -14,7 +14,7 @@ import RaftChannelWebSocket from "./RaftChannelWebSocket";
 import RaftChannelWebSerial from "./RaftChannelWebSerial";
 import RaftChannelSimulated from "./RaftChannelSimulated";
 import RaftCommsStats from "./RaftCommsStats";
-import { RaftEventFn, RaftOKFail, RaftFileSendType, RaftFileDownloadResult, RaftProgressCBType, RaftBridgeSetupResp, RaftFileDownloadFn } from "./RaftTypes";
+import { RaftEventFn, RaftOKFail, RaftFileSendType, RaftFileDownloadResult, RaftProgressCBType, RaftBridgeSetupResp, RaftFileDownloadFn, RaftReportMsg } from "./RaftTypes";
 import RaftSystemUtils from "./RaftSystemUtils";
 import RaftFileHandler from "./RaftFileHandler";
 import RaftStreamHandler from "./RaftStreamHandler";
@@ -237,6 +237,7 @@ export default class RaftConnector {
       // Message handling in and out
       this._raftMsgHandler.registerForResults(this);
       this._raftMsgHandler.registerMsgSender(this._raftChannel);
+      this._raftMsgHandler.reportMsgCallbacksSet("eventHandler", this.onRxReportMsg.bind(this));
 
       return true;
     } else {
@@ -739,5 +740,19 @@ export default class RaftConnector {
       firmwareBaseURL,
       this._raftChannel
     );
+  }
+
+  async onRxReportMsg(reportMsg: RaftReportMsg): Promise<void> {
+    // console.log(`onRxReportMsg ${JSON.stringify(reportMsg)}`);
+    if (reportMsg.msgType && reportMsg.msgType.toLowerCase() === "sysevent") {
+      if (reportMsg.msgName && reportMsg.msgName.toLowerCase() === "shutdown") {
+        // Indicate disconnection
+        if (this._onEventFn) {
+          this._onEventFn("conn", RaftConnEvent.CONN_DISCONNECTED, RaftConnEventNames[RaftConnEvent.CONN_DISCONNECTED]);
+        }
+        // Disconnect
+        await this.disconnect();
+      }
+    }
   }
 }
