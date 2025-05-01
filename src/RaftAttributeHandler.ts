@@ -142,8 +142,60 @@ export default class AttributeHandler {
         // Add the new timestamps
         deviceTimeline.timestampsUs.push(...timestampsUs);
 
+        // Validate attributes based on the vft field
+        this.validateAttributes(pollRespMetadata, devAttrsState, numNewDataPoints);
+
         // Return the next message buffer index
         return msgDataStartIdx+pollRespSizeBytes;
+    }
+
+    private validateAttributes(pollRespMetadata: DeviceTypePollRespMetadata, devAttrsState: DeviceAttributesState, numNewDataPoints: number): void {
+        // Iterate through all attributes to find those with a vft field
+        for (let attrIdx = 0; attrIdx < pollRespMetadata.a.length; attrIdx++) {
+            const attrDef: DeviceTypeAttribute = pollRespMetadata.a[attrIdx];
+            
+            // Check if this attribute has a vft field
+            if (!("vft" in attrDef) || !attrDef.vft) {
+                continue;
+            }
+
+            // Get the name of the validating attribute
+            const validatingAttrName = attrDef.vft;
+
+            // Check if the validating attribute exists in the state
+            if (!(validatingAttrName in devAttrsState)) {
+                console.debug(`Cannot validate attribute ${attrDef.n} as validating attribute ${validatingAttrName} doesn't exist`);
+                continue;
+            }
+
+            // Get the current attribute state
+            const currentAttr = devAttrsState[attrDef.n];
+            const validatingAttr = devAttrsState[validatingAttrName];
+
+            // Check if both attributes have values
+            if (!currentAttr.values.length || !validatingAttr.values.length) {
+                continue;
+            }
+
+            // Get the most recent values from both attributes
+            const numValues = currentAttr.values.length;
+            const startIdx = numValues - numNewDataPoints;
+            
+            // Process each of the new values
+            for (let i = 0; i < numNewDataPoints; i++) {
+                const valueIdx = startIdx + i;
+                if (valueIdx >= 0 && valueIdx < numValues) {
+                    // Check if the validating attribute's value is 0/false at the same index
+                    const validatingValueIdx = validatingAttr.values.length - numNewDataPoints + i;
+                    if (validatingValueIdx >= 0 && validatingValueIdx < validatingAttr.values.length) {
+                        // If the validating attribute's value is 0 or false, mark the current value as invalid
+                        if (!validatingAttr.values[validatingValueIdx]) {
+                            currentAttr.values[valueIdx] = NaN; // Using NaN to represent invalid values
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private processMsgAttribute(attrDef: DeviceTypeAttribute, msgBuffer: Uint8Array, msgBufIdx: number, msgDataStartIdx: number): { values: number[], newMsgBufIdx: number} {
@@ -237,6 +289,40 @@ export default class AttributeHandler {
             attrValues = attrValues.map((value) => (value) + addValue);
         }
 
+        // Apply lookup table if defined
+        if ("lut" in attrDef && attrDef.lut !== undefined) {
+            attrValues = attrValues.map((value): number => {
+                // Skip NaN values
+                if (isNaN(value)) {
+                    return value;
+                }
+
+                // Search through the lookup table rows for a match
+                let defaultValue: number | null = null;
+                
+                for (const row of attrDef.lut || []) {
+                    // Empty string means default for unmatched values
+                    if (row.r === "") {
+                        defaultValue = row.v;
+                        continue;
+                    }
+                    
+                    // Parse the range string
+                    if (this.isValueInRangeString(value, row.r)) {
+                        return row.v;
+                    }
+                }
+                
+                // If no match found but we have a default, use it
+                if (defaultValue !== null) {
+                    return defaultValue;
+                }
+                
+                // Otherwise keep the original value
+                return value;
+            });
+        }
+
         // console.log(`DeviceManager msg attrGroup ${attrGroup} devkey ${deviceKey} valueHexChars ${valueHexChars} msgHexStr ${msgHexStr} ts ${timestamp} attrName ${attrDef.n} type ${attrDef.t} value ${value} signExtendableMaskSignPos ${signExtendableMaskSignPos} attrTypeDefForStruct ${attrTypeDefForStruct} attrDef ${attrDef}`);
         // Move buffer position if using relative positioning
         msgBufIdx += attrUsesAbsPos ? 0 : numBytesConsumed;
@@ -294,5 +380,42 @@ export default class AttributeHandler {
         return { newBufIdx: msgBufIdx, timestampUs: timestampUs };
     }
 
+    // Helper method to check if a value is in a range string like "42,43,44-45,47"
+    private isValueInRangeString(value: number, rangeStr: string): boolean {
+        // Round to integer for comparison
+        const roundedValue = Math.round(value);
+        
+        // Split the range string by commas
+        const parts = rangeStr.split(',');
+        
+        for (const part of parts) {
+            // Check if it's a range (contains a hyphen)
+            if (part.includes('-')) {
+                const [startStr, endStr] = part.split('-');
+                
+                // Handle hex values
+                const start = startStr.toLowerCase().startsWith('0x') ? 
+                    parseInt(startStr, 16) : parseInt(startStr, 10);
+                const end = endStr.toLowerCase().startsWith('0x') ? 
+                    parseInt(endStr, 16) : parseInt(endStr, 10);
+                
+                if (!isNaN(start) && !isNaN(end) && roundedValue >= start && roundedValue <= end) {
+                    return true;
+                }
+            } 
+            // Check if it's a single value
+            else {
+                // Handle hex values
+                const partValue = part.toLowerCase().startsWith('0x') ? 
+                    parseInt(part, 16) : parseInt(part, 10);
+                
+                if (!isNaN(partValue) && roundedValue === partValue) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
 
 }
