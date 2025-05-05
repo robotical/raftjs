@@ -74,7 +74,7 @@ export class RaftOKFail {
 
 export type RaftReportMsg = {
   msgType?: string;
-  rslt: string;
+  rslt?: string;
   timeReceived?: number;
   hexRd?: string;
   elemName?: string;
@@ -82,6 +82,7 @@ export type RaftReportMsg = {
   msgKey?: string;
   addr?: number;
   msgBody?: string;
+  msgName?: string;
 }
 
 export type RaftHWFWStat = {

@@ -13,7 +13,7 @@ import RaftMsgHandler, { RaftMsgResultCode } from "./RaftMsgHandler";
 import RaftChannelWebSocket from "./RaftChannelWebSocket";
 import RaftChannelWebSerial from "./RaftChannelWebSerial";
 import RaftCommsStats from "./RaftCommsStats";
-import { RaftEventFn, RaftOKFail, RaftFileSendType, RaftFileDownloadResult, RaftProgressCBType, RaftBridgeSetupResp, RaftFileDownloadFn } from "./RaftTypes";
+import { RaftEventFn, RaftOKFail, RaftFileSendType, RaftFileDownloadResult, RaftProgressCBType, RaftBridgeSetupResp, RaftFileDownloadFn, RaftReportMsg } from "./RaftTypes";
 import RaftSystemUtils from "./RaftSystemUtils";
 import RaftFileHandler from "./RaftFileHandler";
 import RaftStreamHandler from "./RaftStreamHandler";
@@ -58,7 +58,7 @@ export default class RaftConnector {
 
   // Retry connection if lost
   private _retryIfLostEnabled = true;
-  private _retryIfLostForSecs = 10;
+  private _retryIfLostForSecs = 60;
   private _retryIfLostIsConnected = false;
   private _retryIfLostDisconnectTime: number | null = null;
   private readonly _retryIfLostRetryDelayMs = 500;
@@ -233,6 +233,7 @@ export default class RaftConnector {
       // Message handling in and out
       this._raftMsgHandler.registerForResults(this);
       this._raftMsgHandler.registerMsgSender(this._raftChannel);
+      this._raftMsgHandler.reportMsgCallbacksSet("eventHandler", this.onRxReportMsg.bind(this));
 
       return true;
     } else {
@@ -253,6 +254,7 @@ export default class RaftConnector {
       RaftLog.error('Raft channel is not initialized.');
       return false;
     }
+
 
     // Store locator
     this._channelConnLocator = locator;
@@ -652,7 +654,7 @@ export default class RaftConnector {
     // Connect
     try {
       if (this._raftChannel) {
-        const connected = await this._raftChannel.connect(this._channelConnLocator, this._systemType ? this._systemType.connectorOptions : { });
+        const connected = await this._raftChannel.connect(this._channelConnLocator, this._systemType ? this._systemType.connectorOptions : {});
         if (connected) {
           this._retryIfLostIsConnected = true;
           return true;
@@ -732,5 +734,19 @@ export default class RaftConnector {
       firmwareBaseURL,
       this._raftChannel
     );
+  }
+
+  async onRxReportMsg(reportMsg: RaftReportMsg): Promise<void> {
+    // console.log(`onRxReportMsg ${JSON.stringify(reportMsg)}`);
+    if (reportMsg.msgType && reportMsg.msgType.toLowerCase() === "sysevent") {
+      if (reportMsg.msgName && reportMsg.msgName.toLowerCase() === "shutdown") {
+        // Indicate disconnection
+        if (this._onEventFn) {
+          this._onEventFn("conn", RaftConnEvent.CONN_DISCONNECTED, RaftConnEventNames[RaftConnEvent.CONN_DISCONNECTED]);
+        }
+        // Disconnect
+        await this.disconnect();
+      }
+    }
   }
 }

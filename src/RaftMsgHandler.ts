@@ -73,7 +73,7 @@ export default class RaftMsgHandler {
   private _msgTrackLastCheckIdx = 0;
 
   // report message callback dictionary. Add a callback to subscribe to report messages
-  private _reportMsgCallbacks = new Map<string, (report: RaftReportMsg) => void>();
+  private _reportMsgCallbacks = new Map<string, (report: RaftReportMsg) => Promise<void>>();
 
   // Interface to inform of message results
   private _msgResultHandler: RaftMessageResult | null = null;
@@ -120,7 +120,7 @@ export default class RaftMsgHandler {
     // RaftLog.verbose(`handleNewRxMsg len ${rxMsg.length} ${RaftUtils.bufferToHex(rxMsg)}`)
   }
 
-  reportMsgCallbacksSet(callbackName: string, callback: (report: RaftReportMsg) => void): void {
+  reportMsgCallbacksSet(callbackName: string, callback: (report: RaftReportMsg) => Promise<void>): void {
     this._reportMsgCallbacks.set(callbackName, callback);
   }
 
@@ -152,7 +152,7 @@ export default class RaftMsgHandler {
       const bridgeID = rxMsg.length > RICREST_BRIDGE_ID_POS ? rxMsg[RICREST_BRIDGE_ID_POS] : 0;
       RaftLog.info(
         `_onHDLCFrameDecode RICREST bridge rx bridgeID ${bridgeID} len ${rxMsg.length}`
-      ); 
+      );
 
       // Simply remove the wrapper
       rxMsg = rxMsg.slice(RICREST_BRIDGE_PAYLOAD_POS);
@@ -209,12 +209,12 @@ export default class RaftMsgHandler {
         if (ricRestElemCode == RICRESTElemCode.RICREST_ELEM_CODE_FILEBLOCK) {
           const filePos = RaftUtils.getBEUint32FromBuf(rxMsg, RICSERIAL_PAYLOAD_POS + RICREST_HEADER_PAYLOAD_POS + RICREST_FILEBLOCK_FILEPOS_POS);
           this._msgResultHandler?.onRxFileBlock(
-                filePos, 
-                rxMsg.slice(RICSERIAL_PAYLOAD_POS + RICREST_HEADER_PAYLOAD_POS + RICREST_FILEBLOCK_PAYLOAD_POS, rxMsg.length));
+            filePos,
+            rxMsg.slice(RICSERIAL_PAYLOAD_POS + RICREST_HEADER_PAYLOAD_POS + RICREST_FILEBLOCK_PAYLOAD_POS, rxMsg.length));
         }
       }
 
-    // Other message types
+      // Other message types
     } else {
       this._msgResultHandler?.onRxOtherMsgType(rxMsg, frameTimeMs);
     }
@@ -241,7 +241,7 @@ export default class RaftMsgHandler {
             `_handleResponseMessages RICREST rslt not recognized ${rxMsgNum == 0 ? "unnumbered" : "msgNum " + rxMsgNum.toString()}resp ${restStr}`,
           );
         }
-        
+
       } else {
         RaftLog.warn(
           `_handleResponseMessages RICREST response doesn't contain rslt ${rxMsgNum == 0 ? "unnumbered" : "msgNum " + rxMsgNum.toString()}resp ${restStr}`,
@@ -266,7 +266,7 @@ export default class RaftMsgHandler {
       const reportMsg: RaftReportMsg = JSON.parse(restStr);
       reportMsg.timeReceived = Date.now();
       RaftLog.debug(`_handleReportMessages ${JSON.stringify(reportMsg)}`);
-      this._reportMsgCallbacks.forEach((callback) => callback(reportMsg));
+      this._reportMsgCallbacks.forEach(async (callback) => await callback(reportMsg));
     } catch (excp: unknown) {
       if (excp instanceof Error) {
         RaftLog.warn(
@@ -347,7 +347,7 @@ export default class RaftMsgHandler {
     cmdMsg.set(cmdBytes, RICREST_HEADER_PAYLOAD_POS);
 
     // Frame the message
-    let framedMsg = this.frameCommsMsg(cmdMsg, 
+    let framedMsg = this.frameCommsMsg(cmdMsg,
       RaftCommsMsgTypeCode.MSG_TYPE_COMMAND,
       RaftCommsMsgProtocol.MSG_PROTOCOL_RICREST,
       true);
@@ -355,8 +355,8 @@ export default class RaftMsgHandler {
     // Wrap if bridged
     if (bridgeID !== undefined) {
       framedMsg = this.bridgeCommsMsg(framedMsg, bridgeID);
-    } 
-    
+    }
+
     // Encode like HDLC
     const encodedMsg = this._miniHDLC.encode(framedMsg);
 
@@ -504,8 +504,7 @@ export default class RaftMsgHandler {
 
     // Debug
     RaftLog.debug(
-      `msgTrackingTxCmdMsg msgNum ${this._currentMsgNumber} bridgeID ${bridgeID} msg ${
-              RaftUtils.bufferToHex(msgFrame)} msgOutstanding ${this._msgTrackInfos[this._currentMsgNumber].msgOutstanding
+      `msgTrackingTxCmdMsg msgNum ${this._currentMsgNumber} bridgeID ${bridgeID} msg ${RaftUtils.bufferToHex(msgFrame)} msgOutstanding ${this._msgTrackInfos[this._currentMsgNumber].msgOutstanding
       }`,
     );
 
@@ -594,7 +593,7 @@ export default class RaftMsgHandler {
 
   // Check message timeouts
   async _onMsgTrackTimer(chainRecall: boolean): Promise<void> {
-   
+
     if (this._msgSender !== null) {
       // Handle message tracking
       for (let loopIdx = 0; loopIdx < this._msgTrackInfos.length; loopIdx++) {
@@ -602,7 +601,7 @@ export default class RaftMsgHandler {
         // Index to check
         const checkIdx = this._msgTrackLastCheckIdx;
         this._msgTrackLastCheckIdx = (checkIdx + 1) % this._msgTrackInfos.length;
-        
+
         // Check if message is outstanding
         if (!this._msgTrackInfos[checkIdx].msgOutstanding) continue;
 
@@ -618,7 +617,7 @@ export default class RaftMsgHandler {
           // Debug
           RaftLog.verbose(`msgTrackTimer msgNum ${checkIdx} ${this._msgTrackInfos[checkIdx].retryCount === 0 ? 'first send' : 'timeout - retrying'} ${RaftUtils.bufferToHex(this._msgTrackInfos[checkIdx].msgFrame)}`);
           // RaftLog.verbose(`msgTrackTimer msg ${RaftUtils.bufferToHex(this._msgTrackInfos[i].msgFrame)}`);
-    
+
           // Handle timeout (or first send)
           if (this._msgTrackInfos[checkIdx].retryCount < RaftMsgTrackInfo.MSG_RETRY_COUNT) {
             this._msgTrackInfos[checkIdx].retryCount++;
