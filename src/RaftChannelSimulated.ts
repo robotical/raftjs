@@ -105,7 +105,7 @@ export default class RaftChannelSimulated implements RaftChannel {
         const deviceName = deviceInfo.name ? deviceInfo.name : `SimulatedDevice${i}`;
         this._simulatedDeviceInfoTimeMs.push(0);
         const deviceRate = deviceInfo.publishRatePerSecond ? deviceInfo.publishRatePerSecond : 1;
-        let deviceIntervalMs = 1000;
+        let deviceIntervalMs = 911;
         if ((deviceRate > 0.01) && (deviceRate < 1000)) {
           deviceIntervalMs = Math.floor(1000 / deviceRate);
         }
@@ -423,7 +423,7 @@ export default class RaftChannelSimulated implements RaftChannel {
               {
                   "n": "gx",
                   "t": "<h",
-                  "u": "dps",
+                  "u": "&deg;/s",
                   "r": [-2000, 2000],
                   "d": 16.384,
                   "f": ".2f",
@@ -432,7 +432,7 @@ export default class RaftChannelSimulated implements RaftChannel {
               {
                   "n": "gy",
                   "t": "<h",
-                  "u": "dps",
+                  "u": "&deg;/s",
                   "r": [-2000, 2000],
                   "d": 16.384,
                   "f": ".2f",
@@ -441,7 +441,7 @@ export default class RaftChannelSimulated implements RaftChannel {
               {
                   "n": "gz",
                   "t": "<h",
-                  "u": "dps",
+                  "u": "&deg;/s",
                   "r": [-2000, 2000],
                   "d": 16.384,
                   "f": ".2f",

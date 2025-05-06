@@ -204,9 +204,32 @@ export default class AttributeHandler {
         let curFieldBufIdx = msgBufIdx;
         let attrUsesAbsPos = false;
 
-        // Check for "at": N which means start reading from byte N of the message (after the timestamp bytes)
+        // Check for "at" field which means absolute position in the buffer
         if (attrDef.at !== undefined) {
-            curFieldBufIdx = msgDataStartIdx + attrDef.at;
+            // Handle both single value and array of byte positions
+            if (Array.isArray(attrDef.at)) {
+                // Create a new buffer for non-contiguous data extraction
+                const elemSize = structSizeOf(attrDef.t);
+                const bytesForType = new Uint8Array(elemSize);
+                
+                // Zero out the buffer
+                bytesForType.fill(0);
+                
+                // Copy bytes from the specified positions
+                for (let i = 0; i < attrDef.at.length && i < elemSize; i++) {
+                    const sourceIdx = msgDataStartIdx + attrDef.at[i];
+                    if (sourceIdx < msgBuffer.length) {
+                        bytesForType[i] = msgBuffer[sourceIdx];
+                    }
+                }
+                
+                // Use this buffer for attribute extraction
+                msgBuffer = bytesForType;
+                curFieldBufIdx = 0;
+            } else {
+                // Standard absolute position in the buffer
+                curFieldBufIdx = msgDataStartIdx + attrDef.at;
+            }
             attrUsesAbsPos = true;
         }
 

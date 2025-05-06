@@ -40,7 +40,7 @@ export interface LUTRow {
 export interface DeviceTypeAttribute {
     n: string;                      // Name
     t: string;                      // Type in python struct module format (e.g. 'H' uint16, 'h' int16, 'f' float etc.)
-    at?: number;                    // Start pos in buffer (after timestamp) if present (otherwise use relative position)
+    at?: number | number[];         // Start pos in buffer (after timestamp) if present (otherwise use relative position) or array of byte positions for non-contiguous data
     u?: string;                     // Units (e.g. mm)
     r?: number[];                   // Range (either min, max or min, max, step or discrete values)
     x?: number;                     // XOR bit mask to invert bits in the attribute value
@@ -105,4 +105,3 @@ export type RaftDevTypeInfoResponse = {
     rslt: string;
     devinfo: DeviceTypeInfo;
   };
-  
