@@ -487,7 +487,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
             }
             return undefined;
         } catch (error) {
-            console.error(`DeviceManager getDeviceTypeInfo error ${error}`);
+            console.warn(`DeviceManager getDeviceTypeInfo error ${error}`);
             return undefined;
         }
     }

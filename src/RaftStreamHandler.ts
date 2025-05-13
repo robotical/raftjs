@@ -83,7 +83,7 @@ export default class RaftStreamHandler {
 
     // TODO - if clearExisting is not set, form a queue
     if (this._streamIsStarting || this._lastStreamStartTime > (Date.now() - 500)) {
-      RaftLog.error(`Unable to start sound, too soon since last request`);
+      RaftLog.warn(`Unable to start sound, too soon since last request`);
       return;
     }
 
@@ -105,7 +105,7 @@ export default class RaftStreamHandler {
         this._isPaused = false;
         this._streamIsStarting = false;
         if (!result){
-          RaftLog.error(`Unable to start stream. ufStart message send failed`);
+          RaftLog.warn(`Unable to start stream. ufStart message send failed`);
           return;
         }
         //this.streamingPerformanceChecker();
@@ -172,7 +172,7 @@ export default class RaftStreamHandler {
         RICRESTElemCode.RICREST_ELEM_CODE_COMMAND_FRAME,
       );
     } catch (err) {
-      RaftLog.error(`sendStreamStartMsg error ${err}`);
+      RaftLog.warn(`sendStreamStartMsg error ${err}`);
       return false;
     }
 
@@ -220,7 +220,7 @@ export default class RaftStreamHandler {
         RICRESTElemCode.RICREST_ELEM_CODE_COMMAND_FRAME,
       );
     } catch (err) {
-      RaftLog.error(`sendStreamEndMsg error ${err}`);
+      RaftLog.warn(`sendStreamEndMsg error ${err}`);
       return false;
     }
     return streamEndResp.rslt === 'ok';

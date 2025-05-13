@@ -39,7 +39,7 @@ export default function Main() {
 
   const handleConnect = () => {
     if (ipAddress.trim() === '') {
-      console.error('No IP address entered');
+      console.warn('No IP address entered');
       return;
     }
     connManager.connect('WebSocket', ipAddress, [], null);

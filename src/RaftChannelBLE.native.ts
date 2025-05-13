@@ -363,7 +363,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     try {
       if (this._bleDevice) {
         if (!this._connectedDeviceServiceUUID) {
-          RaftLog.error('BLEChannel _configDeviceConnection - no connected device service UUID');
+          RaftLog.warn('BLEChannel _configDeviceConnection - no connected device service UUID');
           return false;
         }
         this._bleSubscrOnRx = this._bleDevice.monitorCharacteristicForService(
@@ -534,7 +534,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
 
       try {
         if (!this._connectedDeviceServiceUUID) {
-          RaftLog.error('BLEChannel sendTxMsg - no connected device service UUID');
+          RaftLog.warn('BLEChannel sendTxMsg - no connected device service UUID');
           return false;
         }
         await this._bleDevice!.writeCharacteristicWithoutResponseForService(
@@ -577,7 +577,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
 
       try {
         if (!this._connectedDeviceServiceUUID) {
-          RaftLog.error('BLEChannel sendTxMsgNoAwait - no connected device service UUID');
+          RaftLog.warn('BLEChannel sendTxMsgNoAwait - no connected device service UUID');
           return false;
         }
         this._bleDevice!.writeCharacteristicWithoutResponseForService(

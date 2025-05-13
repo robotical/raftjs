@@ -91,7 +91,7 @@ export default class RaftChannelSimulated implements RaftChannel {
           this._simulatedDeviceInfo = parsedLocator;
         }
       } catch (e) {
-        RaftLog.error(`RaftChannelSimulated.connect - error parsing locator ${locator}`);
+        RaftLog.warn(`RaftChannelSimulated.connect - error parsing locator ${locator}`);
         return false;
       }
     }
@@ -123,11 +123,11 @@ export default class RaftChannelSimulated implements RaftChannel {
           }, deviceIntervalMs);
           this._simulatedDeviceInfoTimers.push(timer);
         } else {
-          RaftLog.error(`RaftChannelSimulated.connect - device type info not found for ${deviceName}`);
+          RaftLog.warn(`RaftChannelSimulated.connect - device type info not found for ${deviceName}`);
         }
       }
     } else {
-      RaftLog.error(`RaftChannelSimulated.connect - no simulated devices found`);
+      RaftLog.warn(`RaftChannelSimulated.connect - no simulated devices found`);
     }
 
     // Connected

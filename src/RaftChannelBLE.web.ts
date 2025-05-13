@@ -73,7 +73,7 @@ export default class RaftChannelBLE implements RaftChannel {
   // isEnabled
   isEnabled() {
     if (navigator.bluetooth) {
-      RaftLog.error("Web Bluetooth is supported in your browser.");
+      RaftLog.warn("Web Bluetooth is supported in your browser.");
       return true;
     } else {
       window.alert(
@@ -154,7 +154,7 @@ export default class RaftChannelBLE implements RaftChannel {
               }
 
               if (!service) {
-                RaftLog.error(
+                RaftLog.warn(
                   `RaftChannelBLE.connect - cannot get primary service - giving up`
                 );
                 return false;
@@ -208,13 +208,13 @@ export default class RaftChannelBLE implements RaftChannel {
                 this._isConnected = true;
                 return true;
               } catch (error) {
-                RaftLog.error(
+                RaftLog.warn(
                   `RaftChannelBLE.connect - cannot find characteristic: ${error}`
                 );
               }
             } catch (error) {
               if (connRetry === this._maxConnRetries - 1) {
-                RaftLog.error(
+                RaftLog.warn(
                   `RaftChannelBLE.connect - cannot get primary service ${error} - attempt #${connRetry + 1} - giving up`
                 );
               } else {

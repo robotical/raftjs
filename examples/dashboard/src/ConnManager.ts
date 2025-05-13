@@ -7,10 +7,6 @@ import SystemTypeMarty from "./SystemTypeMarty/SystemTypeMarty";
 const sysTypeManager = RaftSysTypeManager.getInstance();
 const settingsManager = SettingsManager.getInstance();
 
-sysTypeManager.addSystemType('Cog', () => new SystemTypeCog());
-sysTypeManager.addSystemType('Marty', () => new SystemTypeMarty());
-sysTypeManager.addDefaultSystemType(() => new SystemTypeGeneric());
-
 export default class ConnManager {
 
   // Singleton
@@ -20,7 +16,9 @@ export default class ConnManager {
   private _connector = new RaftConnector(async (systemUtils: RaftSystemUtils) => {
     const systemInfo = await systemUtils.getSystemInfo();
     const sysType = sysTypeManager.createSystemType(systemInfo.SystemName) || sysTypeManager.createDefaultSystemType();
-    sysType?.deviceMgrIF.setMaxDataPointsToStore(settingsManager.getSetting("maxDatapointsToStore"));
+    if (sysType && sysType.deviceMgrIF) {
+      sysType.deviceMgrIF.setMaxDataPointsToStore(settingsManager.getSetting("maxDatapointsToStore"));
+    }
     return sysType;
   });
 
@@ -72,7 +70,7 @@ export default class ConnManager {
       });
       return dev;
     } catch (e) {
-      RaftLog.error(`getBleDevice - failed to get device ${e}`);
+      RaftLog.warn(`getBleDevice - failed to get device ${e}`);
       return null;
     }
   }

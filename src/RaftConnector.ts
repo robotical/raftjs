@@ -224,7 +224,7 @@ export default class RaftConnector {
       this._raftChannel = new RaftChannelSimulated(); 
       this._channelConnMethod = 'Simulated';
     } else {
-      RaftLog.error('Unknown method: ' + method);
+      RaftLog.warn('Unknown method: ' + method);
       return false;
     }
 
@@ -255,7 +255,7 @@ export default class RaftConnector {
    */
   async connect(locator: string | object): Promise<boolean> {
     if (!this._raftChannel) {
-      RaftLog.error('Raft channel is not initialized.');
+      RaftLog.warn('Raft channel is not initialized.');
       return false;
     }
 
@@ -271,7 +271,7 @@ export default class RaftConnector {
       // Connect
       connOk = await this._connectToChannel();
     } catch (err) {
-      RaftLog.error('RaftConnector.connect - error: ' + err);
+      RaftLog.warn('RaftConnector.connect - error: ' + err);
     }
 
     if (connOk) {
@@ -281,7 +281,7 @@ export default class RaftConnector {
         this._systemType = await this._getSystemTypeCB(this._raftSystemUtils);
 
         // Set defaults
-        if (this._systemType) {
+        if (this._systemType && this._systemType.defaultWiFiHostname) {
           this._raftSystemUtils.setDefaultWiFiHostname(this._systemType.defaultWiFiHostname);
         }
       }
@@ -667,7 +667,7 @@ export default class RaftConnector {
         }
       }
     } catch (error) {
-      RaftLog.error(`RaftConnector.connect() error: ${error}`);
+      RaftLog.warn(`RaftConnector.connect() error: ${error}`);
     }
     return false;
   }
