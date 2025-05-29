@@ -54,7 +54,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
 
   // Last message tx time
   private _msgTxTimeLast = Date.now();
-  private _msgTxMinTimeBetweenMs = 1;
+  private _msgTxMinTimeBetweenMs = 15;
   private readonly maxRetries = 1;
 
   // File Handler parameters

@@ -76,6 +76,11 @@ export default class RaftConnector {
     this
   );
 
+  // get stream handler
+  getStreamHandler(): RaftStreamHandler {
+    return this._raftStreamHandler;
+  }
+
   // Event listener
   private _onEventFn: RaftEventFn | null = null;
 
