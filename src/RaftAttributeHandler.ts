@@ -45,6 +45,8 @@ export default class AttributeHandler {
 
         } else {
 
+            // console.log(`RaftAttrHdlr.processMsgAttrGroup ${JSON.stringify(pollRespMetadata)} msgBufIdx ${msgBufIdx} timestampUs ${timestampUs}`);
+
             // Iterate over attributes
             for (let attrIdx = 0; attrIdx < pollRespMetadata.a.length; attrIdx++) {
 
@@ -56,6 +58,8 @@ export default class AttributeHandler {
                     continue;
                 }
 
+                // console.log(`RaftAttrHdlr.processMsgAttrGroup attr ${attrDef.n} msgBufIdx ${msgBufIdx} timestampUs ${timestampUs} attrDef ${JSON.stringify(attrDef)}`);
+
                 // Process the attribute
                 const { values, newMsgBufIdx } = this.processMsgAttribute(attrDef, msgBuffer, msgBufIdx, msgDataStartIdx);
                 if (newMsgBufIdx < 0) {
@@ -65,7 +69,6 @@ export default class AttributeHandler {
                 msgBufIdx = newMsgBufIdx;
                 newAttrValues.push(values);
             }
-
         }
         
         // Number of bytes in group
@@ -292,7 +295,7 @@ export default class AttributeHandler {
 
         // Check for bit shift required
         if ("s" in attrDef && attrDef.s) {
-            let bitshift = attrDef.s as number;
+            const bitshift = attrDef.s as number;
             if (bitshift > 0) {
                 attrValues = attrValues.map((value) => (value >>> 0) >>> bitshift);
             } else if (bitshift < 0) {
@@ -346,9 +349,12 @@ export default class AttributeHandler {
             });
         }
 
-        // console.log(`DeviceManager msg attrGroup ${attrGroup} devkey ${deviceKey} valueHexChars ${valueHexChars} msgHexStr ${msgHexStr} ts ${timestamp} attrName ${attrDef.n} type ${attrDef.t} value ${value} signExtendableMaskSignPos ${signExtendableMaskSignPos} attrTypeDefForStruct ${attrTypeDefForStruct} attrDef ${attrDef}`);
+        // const msgBufIdxIn = msgBufIdx;
+
         // Move buffer position if using relative positioning
         msgBufIdx += attrUsesAbsPos ? 0 : numBytesConsumed;
+
+        // console.log(`RaftAttrHdlr.processMsgAttr attr ${attrDef.n} msgBufIdx ${msgBufIdxIn} msgBufIdx ${msgBufIdx} attrUsesAbsPos ${attrUsesAbsPos} numBytesConsumed ${numBytesConsumed} attrValues ${attrValues}`);
 
         // if (attrDef.n === "amb0") {
         //     console.log(`${new Date().toISOString()} ${attrDef.n} ${attrValues}`);
