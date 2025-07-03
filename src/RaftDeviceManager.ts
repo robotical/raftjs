@@ -19,9 +19,6 @@ import { structPack } from "./RaftStruct";
 
 export class DeviceManager implements RaftDeviceMgrIF{
 
-    // Singleton
-    // private static _instance: DeviceManager;
-
     // Max data points to store
     private _maxDatapointsToStore = 1000;
 
@@ -168,6 +165,8 @@ export class DeviceManager implements RaftDeviceMgrIF{
         // Example messages
         // 0080  0015 81 0000006a 0004 53b7 feff00000100081857079314  0011 80 00000000 0011 53b2 075106e400d60054  0010 80 00000000 0012 5231 000d0000010e01
         // 0080  0011 80 00000000 0002 4ae1 0787052606240007  000e 80 00000000 0003 0006 030001af01
+        // 0080  0011 80 00000000 0002 e46e 061e05a206830433  0010 80000000000003e4760006030001c701
+        // 0080  0010 81 00000015 0004 e4a2 0650fe00305002    0011 80000000000002e4a8061f059f06850438   001080000000000003e4aa0006030001c701
         
         // 0080  0011 80 00000000 0002 31e4 05ea05a506660137  000e 80 00000000 0003 0007 030001d901
 
@@ -182,8 +181,10 @@ export class DeviceManager implements RaftDeviceMgrIF{
         //   Finally the device data which can be one or more groups of attributes defined by the schema
 
         // Debug
+        const debugMsgTime = Date.now();
         const debugMsgIndex = this._debugMsgIndex++;
 
+        // Message layout
         const msgTypeLen = 2; // Length of the message type (first two bytes)
         const sectionLengthLen = 2; // Length of the inclusive section length (first two bytes of each section)
         const sectionConnectionModeLen = 1; // Length of the connection mode (next byte after section length)
@@ -300,13 +301,13 @@ export class DeviceManager implements RaftDeviceMgrIF{
                         break;
                     }
 
-                    // console.log(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} attrGroupDataLen ${attrGroupDataLen} attrGroupPos ${attrGroupPos} sectionLen ${sectionLen} msgPos ${msgPos} rxMsgLen ${rxMsg.length} remainingLen ${remainingLen}`);
-
-                    const curTimelineLen = deviceState.deviceTimeline.timestampsUs.length;
                     const newMsgBufIdx = this._attributeHandler.processMsgAttrGroup(rxMsg, attrGroupPos,
                         deviceState.deviceTimeline, pollRespMetadata,
                         deviceState.deviceAttributes,
                         this._maxDatapointsToStore);
+
+                    // console.log(`DevMan.handleClientMsgBinary decoded debugIdx ${debugMsgIndex} devType ${deviceState.deviceTypeInfo.name} attrGroupDataLen ${attrGroupDataLen} attrGroupPos ${attrGroupPos} sectionLen ${sectionLen} msgPos ${msgPos} rxMsgLen ${rxMsg.length} remainingLen ${remainingLen} pollRespMetadata ${JSON.stringify(pollRespMetadata)}`);
+
                     if (newMsgBufIdx < 0)
                     {
                         console.warn(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} processMsgAttrGroup failed newMsgBufIdx ${newMsgBufIdx}`);
@@ -318,16 +319,17 @@ export class DeviceManager implements RaftDeviceMgrIF{
                         console.warn(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} processMsgAttrGroup didn't advance position from ${attrGroupPos} to ${newMsgBufIdx}`);
                         break;
                     }
-                    
+
                     attrGroupPos = newMsgBufIdx;
-                    if (deviceState.deviceTimeline.timestampsUs.length !== curTimelineLen) {
-                        deviceState.stateChanged = true;
-                    }
+                    deviceState.stateChanged = true;
+
+                    console.log(`debugMsgTime ${debugMsgTime} newPt debugMsgIdx ${debugMsgIndex} rxMsgLen ${rxMsg.length} devType ${deviceState.deviceTypeInfo!.name} timestampsUs ${deviceState.deviceTimeline.timestampsUs[deviceState.deviceTimeline.timestampsUs.length - 1]} curTimelineLen ${deviceState.deviceTimeline.timestampsUs.length}`);
+
 
                     // console.log(`DevMan.handleClientMsgBinary group done debugIdx ${debugMsgIndex} attrGroupPos ${attrGroupPos} sectionLen ${sectionLen} msgPos ${msgPos} rxMsgLen ${rxMsg.length} remainingLen ${remainingLen}`);
                 }
             } else {
-                // console.log(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} deviceState incomplete for device ${deviceKey}, skipping attribute processing`);
+                console.warn(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} deviceState incomplete for device ${deviceKey}, skipping attribute processing`);
             }
 
             // Debug
@@ -348,7 +350,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
         }
         
         // Process the callback
-        this.processStateCallback();        
+        this.processStateCallback();
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -464,7 +466,6 @@ export class DeviceManager implements RaftDeviceMgrIF{
                     // Loop
                     while (msgBufIdx < msgBytes.length) {
 
-                        const curTimelineLen = deviceState.deviceTimeline.timestampsUs.length;
                         const newMsgBufIdx = this._attributeHandler.processMsgAttrGroup(msgBytes, msgBufIdx,
                             deviceState.deviceTimeline, pollRespMetadata,
                             deviceState.deviceAttributes,
@@ -472,9 +473,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
                         if (newMsgBufIdx < 0)
                             break;
                         msgBufIdx = newMsgBufIdx;
-                        if (deviceState.deviceTimeline.timestampsUs.length !== curTimelineLen) {
-                            deviceState.stateChanged = true;
-                        }
+                        deviceState.stateChanged = true;
                     }
                 });
             });

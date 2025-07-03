@@ -379,7 +379,7 @@ export default class AttributeHandler {
     private extractTimestampAndAdvanceIdx(msgBuffer: Uint8Array, msgBufIdx: number, timestampWrapHandler: DeviceTimeline): 
                     { newBufIdx: number, timestampUs: number } {
 
-        // Check there are enough characters for the timestamp
+        // Check there are enough bytes for the timestamp
         if (msgBufIdx + this.POLL_RESULT_TIMESTAMP_SIZE > msgBuffer.length) {
             return { newBufIdx: -1, timestampUs: 0 };
         }
@@ -393,8 +393,8 @@ export default class AttributeHandler {
             timestampUs = structUnpack(">I", tsBuffer)[0] as number * this.POLL_RESULT_RESOLUTION_US;
         }
 
-        // Check if time is before lastReportTimeMs - in which case a wrap around occurred to add on the max value
-        if (timestampUs < timestampWrapHandler.lastReportTimestampUs) {
+        // Check if time is before lastReportTimeMs by more than 100ms - in which case a wrap around occurred to add on the max value
+        if (timestampUs + 100000 < timestampWrapHandler.lastReportTimestampUs ) {
             timestampWrapHandler.reportTimestampOffsetUs += this.POLL_RESULT_WRAP_VALUE * this.POLL_RESULT_RESOLUTION_US;
         }
         timestampWrapHandler.lastReportTimestampUs = timestampUs;
