@@ -323,7 +323,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
                     attrGroupPos = newMsgBufIdx;
                     deviceState.stateChanged = true;
 
-                    console.log(`debugMsgTime ${debugMsgTime} newPt debugMsgIdx ${debugMsgIndex} rxMsgLen ${rxMsg.length} devType ${deviceState.deviceTypeInfo!.name} timestampsUs ${deviceState.deviceTimeline.timestampsUs[deviceState.deviceTimeline.timestampsUs.length - 1]} curTimelineLen ${deviceState.deviceTimeline.timestampsUs.length}`);
+                    // console.log(`debugMsgTime ${debugMsgTime} newPt debugMsgIdx ${debugMsgIndex} rxMsgLen ${rxMsg.length} devType ${deviceState.deviceTypeInfo!.name} timestampsUs ${deviceState.deviceTimeline.timestampsUs[deviceState.deviceTimeline.timestampsUs.length - 1]} curTimelineLen ${deviceState.deviceTimeline.timestampsUs.length}`);
 
 
                     // console.log(`DevMan.handleClientMsgBinary group done debugIdx ${debugMsgIndex} attrGroupPos ${attrGroupPos} sectionLen ${sectionLen} msgPos ${msgPos} rxMsgLen ${rxMsg.length} remainingLen ${remainingLen}`);
