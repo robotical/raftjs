@@ -181,7 +181,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
         //   Finally the device data which can be one or more groups of attributes defined by the schema
 
         // Debug
-        const debugMsgTime = Date.now();
+        // const debugMsgTime = Date.now();
         const debugMsgIndex = this._debugMsgIndex++;
 
         // Message layout
