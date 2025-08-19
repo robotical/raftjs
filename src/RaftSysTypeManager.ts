@@ -53,8 +53,35 @@ export default class RaftSysTypeManager {
     const serviceUUIDs = new Set<string>();
     this._sysTypes.forEach((factory) => {
       const sysType = factory();
+      if (!sysType.BLEServiceUUIDs) {
+        return;
+      }
       sysType.BLEServiceUUIDs.forEach((uuid) => serviceUUIDs.add(uuid));
     });
     return Array.from(serviceUUIDs);
+  }
+
+  // Get a list of all device name prefixes to filter on
+  getAllNamePrefixes(): string[] {
+    const deviceNames = new Set<string>();
+    this._sysTypes.forEach((factory) => {
+      const sysType = factory();
+      if (!sysType.BLEDeviceNames) {
+        return;
+      }
+      sysType.BLEDeviceNames.forEach((name) => deviceNames.add(name));
+    });
+    return Array.from(deviceNames);
+  }
+
+  // Find the system type for a given BLE device name prefix
+  getSystemTypeByBLENamePrefix(name: string): RaftSystemType | null {
+    for (const factory of this._sysTypes.values()) {
+      const sysType = factory();
+      if (sysType.BLEDeviceNames && sysType.BLEDeviceNames.some((prefix) => name.startsWith(prefix))) {
+        return sysType;
+      }
+    }
+    return null;
   }
 }

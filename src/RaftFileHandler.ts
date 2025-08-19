@@ -162,11 +162,11 @@ export default class RaftFileHandler {
                 RICRESTElemCode.RICREST_ELEM_CODE_COMMAND_FRAME,
         );
     } catch (err) {
-      RaftLog.error(`sendFileStartMsg error ${err}`);
+      RaftLog.warn(`sendFileStartMsg error ${err}`);
       return false;
     }
     if (fileStartResp.rslt !== 'ok') {
-      RaftLog.error(`sendFileStartMsg error ${fileStartResp.rslt}`);
+      RaftLog.warn(`sendFileStartMsg error ${fileStartResp.rslt}`);
       return false;
     }
 
@@ -209,7 +209,7 @@ export default class RaftFileHandler {
       await this.awaitOutstandingMsgPromises(true);
     } catch (err) {
       // Ignore
-      RaftLog.error(`sendFileEndMsg awaitOutstandingMsgPromises error ${err}`);
+      RaftLog.warn(`sendFileEndMsg awaitOutstandingMsgPromises error ${err}`);
     }
 
     // Send
@@ -220,7 +220,7 @@ export default class RaftFileHandler {
         RICRESTElemCode.RICREST_ELEM_CODE_COMMAND_FRAME,
       );
     } catch (err) {
-      RaftLog.error(`sendFileEndMsg error ${err}`);
+      RaftLog.warn(`sendFileEndMsg error ${err}`);
       return false;
     }
     return fileEndResp.rslt === 'ok';
@@ -240,7 +240,7 @@ export default class RaftFileHandler {
         RICRESTElemCode.RICREST_ELEM_CODE_COMMAND_FRAME,
       );
     } catch (err) {
-      RaftLog.error(`sendFileCancelMsg error ${err}`);
+      RaftLog.warn(`sendFileCancelMsg error ${err}`);
     }
   }
 
@@ -438,7 +438,7 @@ export default class RaftFileHandler {
       const bridgedDeviceSerialPort = "Serial" + fileSource.slice(bridgeSerialPrefix.length);
       const cmdResp = await this._msgHandler.createCommsBridge(bridgedDeviceSerialPort, "fileSource");
       if (cmdResp.rslt != "ok") {
-        RaftLog.error(`fileReceive - failed to setup bridge ${cmdResp.rslt}`);
+        RaftLog.warn(`fileReceive - failed to setup bridge ${cmdResp.rslt}`);
         return new RaftFileDownloadResult();
       }
       bridgeID = cmdResp.bridgeID;
@@ -490,7 +490,7 @@ export default class RaftFileHandler {
         bridgeID,
       );
     } catch (err) {
-      RaftLog.error(`_receiveFileStartMsg error ${err}`);
+      RaftLog.warn(`_receiveFileStartMsg error ${err}`);
       return false;
     }
     RaftLog.info(`_receiveFileStartMsg rslt ${JSON.stringify(cmdResp)}`);
@@ -530,7 +530,7 @@ export default class RaftFileHandler {
           // Check CRC
           const crc16 = RaftMiniHDLC.crc16(this._fileRxBuffer);
           if (crc16 !== this._fileRxCrc16) {
-            RaftLog.error(`_receiveFileContents - CRC error ${crc16} ${this._fileRxCrc16}`);
+            RaftLog.warn(`_receiveFileContents - CRC error ${crc16} ${this._fileRxCrc16}`);
             reject(new Error('fileReceive CRC error'));
             return;
           } else {

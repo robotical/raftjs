@@ -83,7 +83,7 @@ const DevicePanel = ({ deviceKey, lastUpdated }: DevicePanelProps) => {
             navigator.clipboard.writeText(csvContent).then(() => {
                 console.log("Device values copied to clipboard");
             }).catch(err => {
-                console.error('Failed to copy: ', err);
+                console.warn('Failed to copy: ', err);
                 fallbackCopyTextToClipboard(csvContent);
             });
         } else {
@@ -109,7 +109,7 @@ const DevicePanel = ({ deviceKey, lastUpdated }: DevicePanelProps) => {
             document.execCommand("copy");
             // alert("Device values copied to clipboard!");
         } catch (err) {
-            console.error('Fallback: Oops, unable to copy', err);
+            console.warn('Fallback: Oops, unable to copy', err);
             alert("Failed to copy device values to clipboard");
         }
     

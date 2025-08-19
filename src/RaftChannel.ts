@@ -22,6 +22,8 @@ export default interface RaftChannel
     setMsgHandler(raftMsgHandler: RaftMsgHandler): void;
     sendTxMsg(msg: Uint8Array, sendWithResponse: boolean): Promise<boolean>;
     sendTxMsgNoAwait(msg: Uint8Array, sendWithResponse: boolean): Promise<boolean>;
+    sendTxMsgRaw(msg: string): boolean;
+    sendTxMsgRawAndWaitForReply<T>(msgPayload: Uint8Array): T;
     requiresSubscription(): boolean;
     ricRestCmdBeforeDisconnect(): string | null;
     fhBatchAckSize(): number;

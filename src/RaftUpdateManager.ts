@@ -762,9 +762,9 @@ export default class RICUpdateManager {
   ): Promise<boolean> {
 
     // Get the destination
-    let fileDest = this._systemType ? this._systemType.normalFileDestName : "fs";
+    let fileDest = this._systemType && this._systemType.normalFileDestName ? this._systemType.normalFileDestName : "fs";
     if (fileType === RaftFileSendType.FIRMWARE_UPDATE) {
-      fileDest = this._systemType ? this._systemType.firmwareDestName : "fw";
+      fileDest = this._systemType && this._systemType.firmwareDestName ? this._systemType.firmwareDestName : "fw";
     }
     return await this._raftFileHandler.fileSend(
       fileName,

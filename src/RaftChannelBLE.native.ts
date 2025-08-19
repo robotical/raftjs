@@ -125,7 +125,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
 
   async discoveryStart(uuids: string[], tries = 10): Promise<boolean> {
     if (tries <= 0) {
-      RaftLog.debug(`BLEChannel discoveryStart failed after 5 tries`);
+      RaftLog.debug(`BLEChannel discoveryStart failed`);
       return false;
     }
     // Disconnect any existing connection
@@ -363,7 +363,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
     try {
       if (this._bleDevice) {
         if (!this._connectedDeviceServiceUUID) {
-          RaftLog.error('BLEChannel _configDeviceConnection - no connected device service UUID');
+          RaftLog.warn('BLEChannel _configDeviceConnection - no connected device service UUID');
           return false;
         }
         this._bleSubscrOnRx = this._bleDevice.monitorCharacteristicForService(
@@ -535,7 +535,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
 
       try {
         if (!this._connectedDeviceServiceUUID) {
-          RaftLog.error('BLEChannel sendTxMsg - no connected device service UUID');
+          RaftLog.warn('BLEChannel sendTxMsg - no connected device service UUID');
           return false;
         }
         await this._bleDevice!.writeCharacteristicWithoutResponseForService(
@@ -578,7 +578,7 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
 
       try {
         if (!this._connectedDeviceServiceUUID) {
-          RaftLog.error('BLEChannel sendTxMsgNoAwait - no connected device service UUID');
+          RaftLog.warn('BLEChannel sendTxMsgNoAwait - no connected device service UUID');
           return false;
         }
         this._bleDevice!.writeCharacteristicWithoutResponseForService(
@@ -600,9 +600,18 @@ export default class RaftChannelPhoneBLE implements RaftChannel {
 
   // RICREST command before disconnect
   ricRestCmdBeforeDisconnect(): string | null {
-    // NT: Sending blerestart *before* disconnecting results in timeout issues as the device is no longer connected when we try to actually disconnect
-    // suggested fix: allow callaback command to be sent after disconnect on the fw side 
-    // return "blerestart";
-    return null;
+    return "bledisconnect";
+  }
+
+  // Method used for testing and simulation should never be called
+  sendTxMsgRaw(): boolean {
+    RaftLog.debug(`sendTxMsgRaw - not implemented`);
+    return false;
+  }
+
+  // Method used for testing and simulation should never be called
+  sendTxMsgRawAndWaitForReply<T>(): T {
+    RaftLog.debug(`sendTxMsgRawAndWaitForReply - not implemented`);
+    return null as T;
   }
 }

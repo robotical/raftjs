@@ -13,7 +13,6 @@ import RaftMsgHandler from "./RaftMsgHandler";
 import RaftLog from "./RaftLog";
 import { RaftConnEvent, RaftConnEventFn } from "./RaftConnEvents";
 import { ConnectorOptions } from "./RaftSystemType";
-import { TextDecoder } from 'text-encoding';
 
 type TWebParityType = 'none' | 'even' | 'odd';
 type TWebFlowControlType = 'none' | 'hardware';
@@ -161,7 +160,7 @@ export default class RaftChannelWebSerial implements RaftChannel {
         if (err.name == "InvalidStateError") {
           RaftLog.debug(`Opening port failed - already open ${err}`);
         } else {
-          RaftLog.error(`Opening port failed: ${err}`);
+          RaftLog.warn(`Opening port failed: ${err}`);
           throw err;
         }
       }
@@ -178,7 +177,7 @@ export default class RaftChannelWebSerial implements RaftChannel {
       });
       // TODO: handle errors
     } catch (err) {
-      RaftLog.error("RaftChannelWebSerial.connect fail. Error: " + JSON.stringify(err));
+      RaftLog.warn("RaftChannelWebSerial.connect fail. Error: " + JSON.stringify(err));
       return false;
     }
 
@@ -349,7 +348,7 @@ export default class RaftChannelWebSerial implements RaftChannel {
         writer.write(msg).then(() => { writer.releaseLock(); });
       }
     } catch (err) {
-      RaftLog.error("sendMsg error: " + JSON.stringify(err));
+      RaftLog.warn("sendMsg error: " + JSON.stringify(err));
     }
 
     return true;
@@ -364,7 +363,7 @@ export default class RaftChannelWebSerial implements RaftChannel {
     let retries = 10;
     try {
       if (!this._port.readable) {
-        RaftLog.error("RaftChannelWebSerial _readLoop port is not readble");
+        RaftLog.warn("RaftChannelWebSerial _readLoop port is not readble");
         return;
       }
       this._reader = this._port.readable.getReader();
@@ -390,7 +389,7 @@ export default class RaftChannelWebSerial implements RaftChannel {
 
           this._onMsgRx(new Uint8Array(value));
         } catch (err) {
-          RaftLog.error("read loop issue: " + JSON.stringify(err));
+          RaftLog.warn("read loop issue: " + JSON.stringify(err));
           retries -= 1;
           if (!retries) break;
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -400,10 +399,22 @@ export default class RaftChannelWebSerial implements RaftChannel {
       if (this._reader) this._reader.releaseLock();
       this._reader = undefined;
     } catch (err) {
-      RaftLog.error("Read loop got disconnected. err: " + JSON.stringify(err));
+      RaftLog.warn("Read loop got disconnected. err: " + JSON.stringify(err));
     }
     // Disconnected!
     this._isConnected = false;
     RaftLog.debug("Finished read loop");
   }
+
+  // Method used for testing and simulation should never be called
+  sendTxMsgRaw(): boolean {
+    RaftLog.debug(`sendTxMsgRaw - not implemented`);
+    return false;
+  }
+
+  // Method used for testing and simulation should never be called
+  sendTxMsgRawAndWaitForReply<T>(): T {
+    RaftLog.debug(`sendTxMsgRawAndWaitForReply - not implemented`);
+    return null as T;
+  }  
 }

@@ -15,11 +15,9 @@ import AttributeHandler from "./RaftAttributeHandler";
 import RaftSystemUtils from "./RaftSystemUtils";
 import RaftDeviceMgrIF from "./RaftDeviceMgrIF";
 import { structPack } from "./RaftStruct";
+// import RaftUtils from "./RaftUtils";
 
 export class DeviceManager implements RaftDeviceMgrIF{
-
-    // Singleton
-    // private static _instance: DeviceManager;
 
     // Max data points to store
     private _maxDatapointsToStore = 1000;
@@ -48,6 +46,9 @@ export class DeviceManager implements RaftDeviceMgrIF{
     private _newDeviceAttributeCallbacks: Array<(deviceKey: string, attrState: DeviceAttributeState) => void> = [];
     private _newAttributeDataCallbacks: Array<(deviceKey: string, attrState: DeviceAttributeState) => void> = [];
 
+    // Debug message index (to help debug with async messages)
+    private _debugMsgIndex = 0;
+
     public getDevicesState(): DevicesState {
         return this._devicesState;
     }
@@ -61,6 +62,12 @@ export class DeviceManager implements RaftDeviceMgrIF{
 
     // Cached device type previous attempt times
     private _cachedDeviceTypePreviousAttemptTimes: { [deviceType: string]: number } = {};
+
+    // Pending device type requests - queue-based to maintain order
+    private _pendingDeviceTypeRequests: { [deviceType: string]: {
+        promise: Promise<DeviceTypeInfo | undefined>;
+        waitingQueue: Array<{resolve: (value: DeviceTypeInfo | undefined) => void, reject: (reason?: any) => void}>;
+    } } = {};
 
     // Constructor
     constructor() {
@@ -156,44 +163,71 @@ export class DeviceManager implements RaftDeviceMgrIF{
         // console.log(`DeviceManager client1 msg ${RaftUtils.bufferToHex(rxMsg)}`);
 
         // Example messages
-        // 0080 0015 81 0000006a 0004 53b7 feff00000100081857079314 0011 80 00000000 0011 53b2 075106e400d60054 0010 80 00000000 0012 5231 000d0000010e01
-        // 0080 0011 80 00000000                                                     0011 53f1 075806e900d70052 0010 80 00000000 0012 5231 000d0000010e01
+        // 0080  0015 81 0000006a 0004 53b7 feff00000100081857079314  0011 80 00000000 0011 53b2 075106e400d60054  0010 80 00000000 0012 5231 000d0000010e01
+        // 0080  0011 80 00000000 0002 4ae1 0787052606240007  000e 80 00000000 0003 0006 030001af01
+        // 0080  0011 80 00000000 0002 e46e 061e05a206830433  0010 80000000000003e4760006030001c701
+        // 0080  0010 81 00000015 0004 e4a2 0650fe00305002    0011 80000000000002e4a8061f059f06850438   001080000000000003e4aa0006030001c701
+        
+        // 0080  0011 80 00000000 0002 31e4 05ea05a506660137  000e 80 00000000 0003 0007 030001d901
+
+        // 0080  0011 80 00000000 0002 4d63 0792053e06500061  000e 80 00000000 0003 0005 030001de01
 
         // First two bytes of each message are the message type (0080)
         // There are then a series of sections each of which is the data for a device
-        //   First two bytes of each section is the section length (big endian) not including the length bytes
+        //   First two bytes of each section is the section length (big endian) not including the section length bytes themselves
         //   Next byte is the connection mode (0 for direct connect, 1+ for bus number) and the MSB of this byte is 1 if the device is online
         //   Next is the device address (4 bytes big endian)
         //   Next is the device type index (2 bytes big endian)
         //   Finally the device data which can be one or more groups of attributes defined by the schema
 
+        // Debug
+        // const debugMsgTime = Date.now();
+        const debugMsgIndex = this._debugMsgIndex++;
+
+        // Message layout
+        const msgTypeLen = 2; // Length of the message type (first two bytes)
+        const sectionLengthLen = 2; // Length of the inclusive section length (first two bytes of each section)
+        const sectionConnectionModeLen = 1; // Length of the connection mode (next byte after section length)
+        const sectionDeviceAddrLen = 4; // Length of the device address (next 4 bytes after connection mode)
+        const sectionDeviceTypeIdxLen = 2; // Length of the device type index (next 2 bytes after device address)
+        const sectionHeaderLen = sectionConnectionModeLen + sectionDeviceAddrLen + sectionDeviceTypeIdxLen;
+
+        // console.log(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} rxMsg.length ${rxMsg.length} rxMsg ${RaftUtils.bufferToHex(rxMsg)}`);
+
+        // Start after the message type
+        let msgPos = msgTypeLen;
+
         // Iterate through sections
-        let msgPos = 2;
         while (msgPos < rxMsg.length) {
 
             // Check length
-            if (rxMsg.length < msgPos + 11) {
-                console.warn(`DeviceManager handleClientMsgBinary invalid length ${rxMsg.length}`);
+            const remainingLen = rxMsg.length - msgPos;
+            if (remainingLen < sectionLengthLen + sectionHeaderLen) {
+                console.warn(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} invalid length ${rxMsg.length} < ${sectionLengthLen + sectionHeaderLen + msgPos}`);
                 return;
             }
 
             // Get the length of the section
             const sectionLen = (rxMsg[msgPos] << 8) + rxMsg[msgPos + 1];
-            if (sectionLen > rxMsg.length) {
-                console.warn(`DeviceManager handleClientMsgBinary invalid msgPos ${msgPos} msgLen ${sectionLen} rxMsgLen ${rxMsg.length}`);
+            if (sectionLen > remainingLen + sectionLengthLen) {
+                console.warn(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} invalid msgPos ${msgPos} msgLen ${sectionLen} remainingLenAfterLenBytes ${remainingLen-sectionLengthLen}`);
                 return;
             }
 
             // Extract message elements
-            const busNum = rxMsg[msgPos + 2] & 0x7f;
-            const isOnline = (rxMsg[msgPos + 2] & 0x80) !== 0;
-            const devAddr = (rxMsg[msgPos + 3] << 24) + (rxMsg[msgPos + 4] << 16) + (rxMsg[msgPos + 5] << 8) + rxMsg[msgPos + 6];
-            const devTypeIdx = (rxMsg[msgPos + 7] << 8) + rxMsg[msgPos + 8];
-            let attrGroupPos = msgPos + 9;
+            let sectionPos = msgPos + sectionLengthLen;
+            const busNum = rxMsg[sectionPos] & 0x7f;
+            const isOnline = (rxMsg[sectionPos] & 0x80) !== 0;
+            sectionPos += sectionConnectionModeLen;
+            // Get the device address and type index
+            const devAddr = (rxMsg[sectionPos] << 24) + (rxMsg[sectionPos + 1] << 16) + (rxMsg[sectionPos + 2] << 8) + rxMsg[sectionPos + 3];
+            sectionPos += sectionDeviceAddrLen;
+            const devTypeIdx = (rxMsg[sectionPos] << 8) + rxMsg[sectionPos + 1];
+            let attrGroupPos = sectionPos + sectionDeviceTypeIdxLen;
 
             // Debug
-            // console.log(`DeviceManager overallLen ${rxMsg.length} sectionPos ${msgPos} sectionLen ${sectionLen} ${RaftUtils.bufferToHex(rxMsg.slice(msgPos, msgPos + sectionLen))}`);
-            // console.log(`DeviceManager connMode ${busNum} isOnline ${isOnline} devAddr ${devAddr} devTypeIdx ${devTypeIdx} attrGroupDataLen ${sectionLen - 9}`);
+            // console.log(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} overallLen ${rxMsg.length} sectionPos ${msgPos} sectionLen ${sectionLen} ${attrGroupPos} ${RaftUtils.bufferToHex(rxMsg.slice(msgPos, msgPos + sectionLen))}`);
+            // console.log(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} connMode ${busNum} isOnline ${isOnline} devAddr ${devAddr} devTypeIdx ${devTypeIdx} attrGroupDataLen ${sectionLen - sectionHeaderLen}`);
 
             // Device key
             const deviceKey = getDeviceKey(busNum.toString(), devAddr.toString(), devTypeIdx.toString());
@@ -203,9 +237,20 @@ export class DeviceManager implements RaftDeviceMgrIF{
 
             // Check if a device state already exists
             if (!(deviceKey in this._devicesState) || (this._devicesState[deviceKey].deviceTypeInfo === undefined)) {
+
                 // Get the device type info
-                const deviceTypeInfo = await this.getDeviceTypeInfo(busNum.toString(), devAddr.toString(), devTypeIdx.toString());
-                // console.log(`DeviceManager deviceTypeInfo ${JSON.stringify(deviceTypeInfo)}`);
+                const deviceTypeInfo = await this.getDeviceTypeInfo(busNum.toString(), devTypeIdx.toString());
+                
+                // Debug
+                // console.log(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} attrGroupPos ${attrGroupPos} busNum ${busNum} devAddr ${devAddr} devTypeIdx ${devTypeIdx} deviceTypeInfo ${JSON.stringify(deviceTypeInfo)}`);
+
+                // Handle case where device type info is not available
+                if (deviceTypeInfo === undefined) {
+                    console.warn(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} deviceType ${devTypeIdx} info not available, skipping attribute processing for this section`);
+                    // Skip to next section without processing attributes
+                    msgPos += sectionLengthLen + sectionLen;
+                    continue;
+                }
 
                 // Check if device record exists
                 if (deviceKey in this._devicesState) {
@@ -239,30 +284,59 @@ export class DeviceManager implements RaftDeviceMgrIF{
             const deviceState = this._devicesState[deviceKey];
             deviceState.isOnline = isOnline;
             
-            // Check if device type info is available
+            // Check if device type info is available and complete
             if (deviceState.deviceTypeInfo && deviceState.deviceTypeInfo.resp) {
 
                 // Iterate over attributes in the group
                 const pollRespMetadata = deviceState.deviceTypeInfo!.resp!;
 
                 // Iterate over attribute groups
-                while (attrGroupPos < msgPos + sectionLen + 2) {
-                    const curTimelineLen = deviceState.deviceTimeline.timestampsUs.length;
+                const attrGroupDataLen = sectionLen - sectionHeaderLen;
+                const attrGroupStartPos = attrGroupPos;
+                while (attrGroupPos < attrGroupStartPos + attrGroupDataLen) {
+
+                    // Add bounds checking
+                    if (attrGroupPos >= rxMsg.length) {
+                        console.warn(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} attrGroupPos ${attrGroupPos} exceeds message length ${rxMsg.length}`);
+                        break;
+                    }
+
                     const newMsgBufIdx = this._attributeHandler.processMsgAttrGroup(rxMsg, attrGroupPos,
                         deviceState.deviceTimeline, pollRespMetadata,
                         deviceState.deviceAttributes,
                         this._maxDatapointsToStore);
+
+                    // console.log(`DevMan.handleClientMsgBinary decoded debugIdx ${debugMsgIndex} devType ${deviceState.deviceTypeInfo.name} attrGroupDataLen ${attrGroupDataLen} attrGroupPos ${attrGroupPos} sectionLen ${sectionLen} msgPos ${msgPos} rxMsgLen ${rxMsg.length} remainingLen ${remainingLen} pollRespMetadata ${JSON.stringify(pollRespMetadata)}`);
+
                     if (newMsgBufIdx < 0)
+                    {
+                        console.warn(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} processMsgAttrGroup failed newMsgBufIdx ${newMsgBufIdx}`);
                         break;
-                    attrGroupPos = newMsgBufIdx;
-                    if (deviceState.deviceTimeline.timestampsUs.length !== curTimelineLen) {
-                        deviceState.stateChanged = true;
                     }
+                    
+                    // Prevent infinite loops
+                    if (newMsgBufIdx <= attrGroupPos) {
+                        console.warn(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} processMsgAttrGroup didn't advance position from ${attrGroupPos} to ${newMsgBufIdx}`);
+                        break;
+                    }
+
+                    attrGroupPos = newMsgBufIdx;
+                    deviceState.stateChanged = true;
+
+                    // console.log(`debugMsgTime ${debugMsgTime} newPt debugMsgIdx ${debugMsgIndex} rxMsgLen ${rxMsg.length} devType ${deviceState.deviceTypeInfo!.name} timestampsUs ${deviceState.deviceTimeline.timestampsUs[deviceState.deviceTimeline.timestampsUs.length - 1]} curTimelineLen ${deviceState.deviceTimeline.timestampsUs.length}`);
+
+
+                    // console.log(`DevMan.handleClientMsgBinary group done debugIdx ${debugMsgIndex} attrGroupPos ${attrGroupPos} sectionLen ${sectionLen} msgPos ${msgPos} rxMsgLen ${rxMsg.length} remainingLen ${remainingLen}`);
                 }
+            } else {
+                console.warn(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} deviceState incomplete for device ${deviceKey}, skipping attribute processing`);
             }
 
+            // Debug
+            // console.log(`DevMan.handleClientMsgBinary section done debugIdx ${debugMsgIndex} attrGroupPos ${attrGroupPos} sectionLen ${sectionLen} msgPos ${msgPos} newMsgPos ${msgPos + sectionLengthLen + sectionLen} rxMsgLen ${rxMsg.length} remainingLen ${remainingLen}`);
+
             // Move to next message
-            msgPos += sectionLen + 2;
+            msgPos += sectionLengthLen + sectionLen;
         }
 
         // Check for devices that have not been updated for a while
@@ -276,7 +350,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
         }
         
         // Process the callback
-        this.processStateCallback();        
+        this.processStateCallback();
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -324,7 +398,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
                 if (!(deviceKey in this._devicesState) || (this._devicesState[deviceKey].deviceTypeInfo === undefined)) {
 
                     // Get the device type info
-                    const deviceTypeInfo = await this.getDeviceTypeInfo(busName, devAddr, deviceTypeName);
+                    const deviceTypeInfo = await this.getDeviceTypeInfo(busName, deviceTypeName);
 
                     // Check if device record exists
                     if (deviceKey in this._devicesState) {
@@ -392,7 +466,6 @@ export class DeviceManager implements RaftDeviceMgrIF{
                     // Loop
                     while (msgBufIdx < msgBytes.length) {
 
-                        const curTimelineLen = deviceState.deviceTimeline.timestampsUs.length;
                         const newMsgBufIdx = this._attributeHandler.processMsgAttrGroup(msgBytes, msgBufIdx,
                             deviceState.deviceTimeline, pollRespMetadata,
                             deviceState.deviceAttributes,
@@ -400,9 +473,7 @@ export class DeviceManager implements RaftDeviceMgrIF{
                         if (newMsgBufIdx < 0)
                             break;
                         msgBufIdx = newMsgBufIdx;
-                        if (deviceState.deviceTimeline.timestampsUs.length !== curTimelineLen) {
-                            deviceState.stateChanged = true;
-                        }
+                        deviceState.stateChanged = true;
                     }
                 });
             });
@@ -455,39 +526,76 @@ export class DeviceManager implements RaftDeviceMgrIF{
     // Get device type info
     ////////////////////////////////////////////////////////////////////////////
 
-    private async getDeviceTypeInfo(busName: string, _devAddr: string, deviceType: string): Promise<DeviceTypeInfo | undefined> {
-
-        // Check if already in the cache
+    private async getDeviceTypeInfo(busName: string, deviceType: string): Promise<DeviceTypeInfo | undefined> {
+        // Check if already in cache
         if (deviceType in this._cachedDeviceTypeRecs) {
             return this._cachedDeviceTypeRecs[deviceType];
         }
 
-        // Check if we have tried to get device info previously (and failed presumably since it isn't in the cache)
+        // Check if there's already a pending request for this device type
+        if (deviceType in this._pendingDeviceTypeRequests) {
+            // console.log(`DevMan.getDeviceTypeInfo joining existing request queue for deviceType ${deviceType}`);
+            
+            // Add this request to the waiting queue
+            return new Promise<DeviceTypeInfo | undefined>((resolve, reject) => {
+                this._pendingDeviceTypeRequests[deviceType].waitingQueue.push({ resolve, reject });
+            });
+        }
+
+        // Check rate limiting for new requests
         if (deviceType in this._cachedDeviceTypePreviousAttemptTimes) {
-            // Check if we should retry
-            if ((Date.now() - this._cachedDeviceTypePreviousAttemptTimes[deviceType]) < this._minTimeBetweenDeviceTypeInfoRetrievalMs) {
+            const timeSinceLastAttempt = Date.now() - this._cachedDeviceTypePreviousAttemptTimes[deviceType];
+            if (timeSinceLastAttempt < this._minTimeBetweenDeviceTypeInfoRetrievalMs) {
+                console.log(`DevMan.getDeviceTypeInfo rate limited for deviceType ${deviceType}`);
                 return undefined;
             }
         }
-        this._cachedDeviceTypePreviousAttemptTimes[deviceType] = Date.now();
 
-        // Get the device type info from the server
+        // Create and cache the promise with an empty waiting queue
+        const requestPromise = this.executeDeviceTypeInfoRequest(busName, deviceType);
+        this._pendingDeviceTypeRequests[deviceType] = {
+            promise: requestPromise,
+            waitingQueue: []
+        };
+
         try {
-            // Form the request
-            const cmd = "devman/typeinfo?bus=" + busName + "&type=" + deviceType;
+            const result = await requestPromise;
+            
+            // Resolve all waiting requests with the same result
+            const waitingQueue = this._pendingDeviceTypeRequests[deviceType].waitingQueue;
+            waitingQueue.forEach(({ resolve }) => resolve(result));
+            
+            return result;
+        } catch (error) {
+            // Reject all waiting requests with the same error
+            const waitingQueue = this._pendingDeviceTypeRequests[deviceType].waitingQueue;
+            waitingQueue.forEach(({ reject }) => reject(error));
+            
+            console.warn(`DevMan.getDeviceTypeInfo failed for ${deviceType}: ${error}`);
+            return undefined;
+        } finally {
+            // Clean up the pending request
+            delete this._pendingDeviceTypeRequests[deviceType];
+        }
+    }
 
-            // Get the msg handler
+    private async executeDeviceTypeInfoRequest(busName: string, deviceType: string): Promise<DeviceTypeInfo | undefined> {
+        this._cachedDeviceTypePreviousAttemptTimes[deviceType] = Date.now();
+        
+        try {
+            const cmd = "devman/typeinfo?bus=" + busName + "&type=" + deviceType;
             const msgHandler = this._systemUtils?.getMsgHandler();
+            
             if (msgHandler) {
                 const msgRslt = await msgHandler.sendRICRESTURL<RaftDevTypeInfoResponse>(cmd);
-                if (msgRslt.rslt === "ok") {
+                if (msgRslt && msgRslt.rslt === "ok") {
                     this._cachedDeviceTypeRecs[deviceType] = msgRslt.devinfo;
-                    return msgRslt.devinfo
+                    return msgRslt.devinfo;
                 }
             }
             return undefined;
         } catch (error) {
-            console.error(`DeviceManager getDeviceTypeInfo error ${error}`);
+            console.warn(`DeviceManager getDeviceTypeInfo error ${error}`);
             return undefined;
         }
     }

@@ -33,10 +33,14 @@ export function decodeAttrUnitsEncoding(unitsEncoding: string): string {
     return unitsEncoding.replace(/&deg;/g, "°");
 }
 
+export interface LUTRow {
+    r: string;
+    v: number;
+}
 export interface DeviceTypeAttribute {
     n: string;                      // Name
     t: string;                      // Type in python struct module format (e.g. 'H' uint16, 'h' int16, 'f' float etc.)
-    at?: number;                    // Start pos in buffer (after timestamp) if present (otherwise use relative position)
+    at?: number | number[];         // Start pos in buffer (after timestamp) if present (otherwise use relative position) or array of byte positions for non-contiguous data
     u?: string;                     // Units (e.g. mm)
     r?: number[];                   // Range (either min, max or min, max, step or discrete values)
     x?: number;                     // XOR bit mask to invert bits in the attribute value
@@ -51,6 +55,8 @@ export interface DeviceTypeAttribute {
     v?: boolean | number;           // Visibility of the attribute in all locations (mainly used to hide attributes that are not useful to the user)
     vs?: boolean | number;          // Display attribute value in time-series graphs
     vf?: boolean | number;          // Display attribute value in the device info panel
+    vft?: string;                   // Attribute validity based on the value of another named attribute
+    lut?: Array<LUTRow>;            // Lookup table for the attribute value - each row is a lookup table for a range of values e.g. [{"r":"0x20-0x30","v":0},{"r":"1,2,3","v":42},{r:"","v":1}]
 }
 
 export interface CustomFunctionDefinition {
@@ -86,6 +92,7 @@ export interface DeviceTypeInfo {
     manu: string;
     type: string;
     resp?: DeviceTypePollRespMetadata;
+    clas?: Array<string>;
     actions?: DeviceTypeAction[];
 }
 
@@ -98,4 +105,3 @@ export type RaftDevTypeInfoResponse = {
     rslt: string;
     devinfo: DeviceTypeInfo;
   };
-  

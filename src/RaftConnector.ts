@@ -12,6 +12,7 @@ import RaftChannel from "./RaftChannel";
 import RaftMsgHandler, { RaftMsgResultCode } from "./RaftMsgHandler";
 import RaftChannelWebSocket from "./RaftChannelWebSocket";
 import RaftChannelWebSerial from "./RaftChannelWebSerial";
+import RaftChannelSimulated from "./RaftChannelSimulated";
 import RaftCommsStats from "./RaftCommsStats";
 import { RaftEventFn, RaftOKFail, RaftFileSendType, RaftFileDownloadResult, RaftProgressCBType, RaftBridgeSetupResp, RaftFileDownloadFn, RaftReportMsg } from "./RaftTypes";
 import RaftSystemUtils from "./RaftSystemUtils";
@@ -224,8 +225,11 @@ export default class RaftConnector {
     } else if (method === 'WebSerial') {
       this._raftChannel = new RaftChannelWebSerial();
       this._channelConnMethod = 'WebSerial';
+    } else if (method === 'Simulated') {
+      this._raftChannel = new RaftChannelSimulated(); 
+      this._channelConnMethod = 'Simulated';
     } else {
-      RaftLog.error('Unknown method: ' + method);
+      RaftLog.warn('Unknown method: ' + method);
       return false;
     }
 
@@ -256,7 +260,7 @@ export default class RaftConnector {
    */
   async connect(locator: string | object): Promise<boolean> {
     if (!this._raftChannel) {
-      RaftLog.error('Raft channel is not initialized.');
+      RaftLog.warn('Raft channel is not initialized.');
       return false;
     }
 
@@ -273,7 +277,7 @@ export default class RaftConnector {
       // Connect
       connOk = await this._connectToChannel();
     } catch (err) {
-      RaftLog.error('RaftConnector.connect - error: ' + err);
+      RaftLog.warn('RaftConnector.connect - error: ' + err);
     }
 
     if (connOk) {
@@ -283,7 +287,7 @@ export default class RaftConnector {
         this._systemType = await this._getSystemTypeCB(this._raftSystemUtils);
 
         // Set defaults
-        if (this._systemType) {
+        if (this._systemType && this._systemType.defaultWiFiHostname) {
           this._raftSystemUtils.setDefaultWiFiHostname(this._systemType.defaultWiFiHostname);
         }
       }
@@ -325,10 +329,12 @@ export default class RaftConnector {
     if (this._raftChannel) {
       // Check if there is a RICREST command to send before disconnecting
       const ricRestCommand = this._raftChannel.ricRestCmdBeforeDisconnect();
-      console.log(`sending RICREST command before disconnect: ${ricRestCommand}`);
       if (ricRestCommand) {
+        console.log(`sending RICREST command before disconnect: ${ricRestCommand}`);
         await this.sendRICRESTMsg(ricRestCommand, {});
       }
+      // Pause a little before disconnecting
+      await new Promise(resolve => setTimeout(resolve, 1000));
       // await this.sendRICRESTMsg("bledisc", {});
       await this._raftChannel.disconnect();
       this._raftChannel = null;
@@ -659,14 +665,14 @@ export default class RaftConnector {
     // Connect
     try {
       if (this._raftChannel) {
-        const connected = await this._raftChannel.connect(this._channelConnLocator, this._systemType ? this._systemType.connectorOptions : {});
+        const connected = await this._raftChannel.connect(this._channelConnLocator, this._systemType ? this._systemType.connectorOptions : { });
         if (connected) {
           this._retryIfLostIsConnected = true;
           return true;
         }
       }
     } catch (error) {
-      RaftLog.error(`RaftConnector.connect() error: ${error}`);
+      RaftLog.warn(`RaftConnector.connect() error: ${error}`);
     }
     return false;
   }

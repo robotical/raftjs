@@ -134,7 +134,7 @@ export function structPack(format: string, values: number[]): Uint8Array {
     let offset = 0;
     let littleEndian = false;
 
-    let valIdx = 0;
+    const valIdx = 0;
     for (let i = 0; i < format.length; i++) {
         const char = format[i];
         const value = values[valIdx];

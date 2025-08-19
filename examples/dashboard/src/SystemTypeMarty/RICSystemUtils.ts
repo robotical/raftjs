@@ -98,7 +98,7 @@ export default class RICSystemUtils {
       const retrieveResult = await this.retrieveInfo();
       return retrieveResult;
     } catch (err) {
-      RaftLog.error(`retrieveMartySystemInfo: error ${err}`);
+      RaftLog.warn(`retrieveMartySystemInfo: error ${err}`);
     }
     return false;
   }
@@ -260,7 +260,7 @@ export default class RICSystemUtils {
             // Debug
             RaftLog.debug(
               `getHWElemList: found ${hwElemList.hw.length} addons/buspixels`
-            
+            );
           } else if (addToNonAddOnsList) {
             this._hwElemsExcludingAddOns.push(...hwElemList.hw);
             // Debug
@@ -279,9 +279,9 @@ export default class RICSystemUtils {
     try {
       const reports: Array<RaftReportMsg> = [];
       // add callback to subscribe to report messages
-      this._msgHandler.reportMsgCallbacksSet("getHWElemCB", function (
+      this._msgHandler.reportMsgCallbacksSet("getHWElemCB", async function (
         report: RaftReportMsg
-      ) {
+      ): Promise<void> {
         reports.push(report);
         RaftLog.debug(`getHWElemCB Report callback ${JSON.stringify(report)}`);
       });

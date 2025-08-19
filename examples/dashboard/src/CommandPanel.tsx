@@ -38,17 +38,17 @@ export default function CommandPanel() {
 
         // Update history only if the command is not the same as the last one
         if (commandHistory.length === 0 || commandHistory[commandHistory.length - 1] !== cmd) {
-          setCommandHistory((prevHistory) => [...prevHistory, cmd]);
+          setCommandHistory((prevHistory: any) => [...prevHistory, cmd]);
         }
 
         // Reset the history index and clear the command
         setHistoryIndex(-1);
         setCommand('');
       }).catch(error => {
-        console.error(`Error sending command: ${cmd}`, error);
+        console.warn(`Error sending command: ${cmd}`, error);
       });
     } else {
-      console.error("Command is empty.");
+      console.warn("Command is empty.");
     }
   };
 

@@ -44,7 +44,7 @@ export default class RaftLog {
 
   static error(msg: string) {
     if (!this.doLogging(RaftLogLevel.ERROR, msg))
-      console.error(RaftLog.format(msg));
+      console.warn(RaftLog.format(msg));
   }
 
   static verbose(msg: string) {

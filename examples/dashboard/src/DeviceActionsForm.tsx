@@ -13,7 +13,7 @@ interface InputValues {
     [key: string]: number;
 }
 
-const DeviceActionsForm: React.FC<DeviceActionsTableProps> = ({ deviceKey }) => {
+const DeviceActionsForm: React.FC<DeviceActionsTableProps> = ({ deviceKey }: DeviceActionsTableProps) => {
     const deviceManager = connManager.getConnector().getSystemType()?.deviceMgrIF;
     const [deviceActions, setDeviceActions] = useState<DeviceTypeAction[]>([]);
     const [inputValues, setInputValues] = useState<InputValues>({});
@@ -44,7 +44,7 @@ const DeviceActionsForm: React.FC<DeviceActionsTableProps> = ({ deviceKey }) => 
     }, [deviceKey]);
 
     const handleInputChange = (name: string, value: number) => {
-        setInputValues((prevValues) => ({
+        setInputValues((prevValues: any) => ({
             ...prevValues,
             [name]: value,
         }));

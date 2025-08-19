@@ -61,7 +61,9 @@ export default class RaftSystemUtils {
    * @param defaultWiFiHostname
    */
   setDefaultWiFiHostname(defaultWiFiHostname: string) {
-    this._defaultWiFiHostname = defaultWiFiHostname;
+    if (defaultWiFiHostname) {
+      this._defaultWiFiHostname = defaultWiFiHostname;
+    }
   }
   
   /**

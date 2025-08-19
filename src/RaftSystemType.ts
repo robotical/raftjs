@@ -15,18 +15,20 @@ export interface ConnectorOptions {
 
 export interface RaftSystemType {
   nameForDialogs: string;
-  defaultWiFiHostname: string;
-  BLEServiceUUIDs: string[];
-  BLECmdUUID: string;
-  BLERespUUID: string;
-  firmwareDestName: string;
-  normalFileDestName: string;
+  defaultWiFiHostname?: string;
+  BLEServiceUUIDs?: string[];
+  BLECmdUUID?: string;
+  BLERespUUID?: string;
+  BLEDeviceNames?: string[];
+  firmwareDestName?: string;
+  normalFileDestName?: string;
   connectorOptions: ConnectorOptions;
   setup: (systemUtils: RaftSystemUtils, onEvent: RaftEventFn | null) => void;
   subscribeForUpdates: RaftSubscribeForUpdatesCBType | null;
   stateIsInvalid: RaftStateIsInvalidCBType | null;
   rxOtherMsgType: RaftRxOtherMsgType | null;
-  deviceMgrIF: RaftDeviceMgrIF;
+  deviceMgrIF?: RaftDeviceMgrIF;
+  nonRaftTypeCode?: string;
 }
 
 export type RaftGetSystemTypeCBType = (systemUtils: RaftSystemUtils) => Promise<RaftSystemType | null>;

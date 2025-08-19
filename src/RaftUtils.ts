@@ -29,7 +29,7 @@ export default class RaftUtils {
   ): void {
     // Check valid
     if (buffer.length < startPos + strToAdd.length + 1) {
-      RaftLog.error("addStringToBuffer buffer too short");
+      RaftLog.warn("addStringToBuffer buffer too short");
       return;
     }
     let curPos = startPos;
@@ -471,7 +471,7 @@ export default class RaftUtils {
       return v1 === v2;
     } catch (e) {
       // one of the two versions is invalid, return false
-      RaftLog.error(`isVersionEqual - invalid version ${v1} or ${v2} ${e}`);
+      RaftLog.warn(`isVersionEqual - invalid version ${v1} or ${v2} ${e}`);
       return false;
     }
   }

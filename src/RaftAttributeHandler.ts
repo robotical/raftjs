@@ -45,6 +45,8 @@ export default class AttributeHandler {
 
         } else {
 
+            // console.log(`RaftAttrHdlr.processMsgAttrGroup ${JSON.stringify(pollRespMetadata)} msgBufIdx ${msgBufIdx} timestampUs ${timestampUs}`);
+
             // Iterate over attributes
             for (let attrIdx = 0; attrIdx < pollRespMetadata.a.length; attrIdx++) {
 
@@ -56,6 +58,8 @@ export default class AttributeHandler {
                     continue;
                 }
 
+                // console.log(`RaftAttrHdlr.processMsgAttrGroup attr ${attrDef.n} msgBufIdx ${msgBufIdx} timestampUs ${timestampUs} attrDef ${JSON.stringify(attrDef)}`);
+
                 // Process the attribute
                 const { values, newMsgBufIdx } = this.processMsgAttribute(attrDef, msgBuffer, msgBufIdx, msgDataStartIdx);
                 if (newMsgBufIdx < 0) {
@@ -65,7 +69,6 @@ export default class AttributeHandler {
                 msgBufIdx = newMsgBufIdx;
                 newAttrValues.push(values);
             }
-
         }
         
         // Number of bytes in group
@@ -142,8 +145,60 @@ export default class AttributeHandler {
         // Add the new timestamps
         deviceTimeline.timestampsUs.push(...timestampsUs);
 
+        // Validate attributes based on the vft field
+        this.validateAttributes(pollRespMetadata, devAttrsState, numNewDataPoints);
+
         // Return the next message buffer index
         return msgDataStartIdx+pollRespSizeBytes;
+    }
+
+    private validateAttributes(pollRespMetadata: DeviceTypePollRespMetadata, devAttrsState: DeviceAttributesState, numNewDataPoints: number): void {
+        // Iterate through all attributes to find those with a vft field
+        for (let attrIdx = 0; attrIdx < pollRespMetadata.a.length; attrIdx++) {
+            const attrDef: DeviceTypeAttribute = pollRespMetadata.a[attrIdx];
+            
+            // Check if this attribute has a vft field
+            if (!("vft" in attrDef) || !attrDef.vft) {
+                continue;
+            }
+
+            // Get the name of the validating attribute
+            const validatingAttrName = attrDef.vft;
+
+            // Check if the validating attribute exists in the state
+            if (!(validatingAttrName in devAttrsState)) {
+                console.debug(`Cannot validate attribute ${attrDef.n} as validating attribute ${validatingAttrName} doesn't exist`);
+                continue;
+            }
+
+            // Get the current attribute state
+            const currentAttr = devAttrsState[attrDef.n];
+            const validatingAttr = devAttrsState[validatingAttrName];
+
+            // Check if both attributes have values
+            if (!currentAttr.values.length || !validatingAttr.values.length) {
+                continue;
+            }
+
+            // Get the most recent values from both attributes
+            const numValues = currentAttr.values.length;
+            const startIdx = numValues - numNewDataPoints;
+            
+            // Process each of the new values
+            for (let i = 0; i < numNewDataPoints; i++) {
+                const valueIdx = startIdx + i;
+                if (valueIdx >= 0 && valueIdx < numValues) {
+                    // Check if the validating attribute's value is 0/false at the same index
+                    const validatingValueIdx = validatingAttr.values.length - numNewDataPoints + i;
+                    if (validatingValueIdx >= 0 && validatingValueIdx < validatingAttr.values.length) {
+                        // If the validating attribute's value is 0 or false, mark the current value as invalid
+                        if (!validatingAttr.values[validatingValueIdx]) {
+                            currentAttr.values[valueIdx] = NaN; // Using NaN to represent invalid values
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private processMsgAttribute(attrDef: DeviceTypeAttribute, msgBuffer: Uint8Array, msgBufIdx: number, msgDataStartIdx: number): { values: number[], newMsgBufIdx: number} {
@@ -152,9 +207,32 @@ export default class AttributeHandler {
         let curFieldBufIdx = msgBufIdx;
         let attrUsesAbsPos = false;
 
-        // Check for "at": N which means start reading from byte N of the message (after the timestamp bytes)
+        // Check for "at" field which means absolute position in the buffer
         if (attrDef.at !== undefined) {
-            curFieldBufIdx = msgDataStartIdx + attrDef.at;
+            // Handle both single value and array of byte positions
+            if (Array.isArray(attrDef.at)) {
+                // Create a new buffer for non-contiguous data extraction
+                const elemSize = structSizeOf(attrDef.t);
+                const bytesForType = new Uint8Array(elemSize);
+                
+                // Zero out the buffer
+                bytesForType.fill(0);
+                
+                // Copy bytes from the specified positions
+                for (let i = 0; i < attrDef.at.length && i < elemSize; i++) {
+                    const sourceIdx = msgDataStartIdx + attrDef.at[i];
+                    if (sourceIdx < msgBuffer.length) {
+                        bytesForType[i] = msgBuffer[sourceIdx];
+                    }
+                }
+                
+                // Use this buffer for attribute extraction
+                msgBuffer = bytesForType;
+                curFieldBufIdx = 0;
+            } else {
+                // Standard absolute position in the buffer
+                curFieldBufIdx = msgDataStartIdx + attrDef.at;
+            }
             attrUsesAbsPos = true;
         }
 
@@ -194,13 +272,13 @@ export default class AttributeHandler {
         // Check for XOR mask
         if ("x" in attrDef) {
             const mask = typeof attrDef.x === "string" ? parseInt(attrDef.x, 16) : attrDef.x as number;
-            attrValues = attrValues.map((value) => value ^ mask);
+            attrValues = attrValues.map((value) => (value >>> 0) ^ mask);
         }
         
         // Check for AND mask
         if ("m" in attrDef) {
             const mask = typeof attrDef.m === "string" ? parseInt(attrDef.m, 16) : attrDef.m as number;
-            attrValues = attrValues.map((value) => (maskOnSignedValue ? this.signExtend(value, mask) : value & mask));
+            attrValues = attrValues.map((value) => (maskOnSignedValue ? this.signExtend(value, mask) : (value >>> 0) & mask));
         }
 
         // Check for a sign-bit
@@ -219,9 +297,9 @@ export default class AttributeHandler {
         if ("s" in attrDef && attrDef.s) {
             const bitshift = attrDef.s as number;
             if (bitshift > 0) {
-                attrValues = attrValues.map((value) => (value) >> bitshift);
+                attrValues = attrValues.map((value) => (value >>> 0) >>> bitshift);
             } else if (bitshift < 0) {
-                attrValues = attrValues.map((value) => (value) << -bitshift);
+                attrValues = attrValues.map((value) => (value >>> 0) << -bitshift);
             }
         }
 
@@ -237,9 +315,46 @@ export default class AttributeHandler {
             attrValues = attrValues.map((value) => (value) + addValue);
         }
 
-        // console.log(`DeviceManager msg attrGroup ${attrGroup} devkey ${deviceKey} valueHexChars ${valueHexChars} msgHexStr ${msgHexStr} ts ${timestamp} attrName ${attrDef.n} type ${attrDef.t} value ${value} signExtendableMaskSignPos ${signExtendableMaskSignPos} attrTypeDefForStruct ${attrTypeDefForStruct} attrDef ${attrDef}`);
+        // Apply lookup table if defined
+        if ("lut" in attrDef && attrDef.lut !== undefined) {
+            attrValues = attrValues.map((value): number => {
+                // Skip NaN values
+                if (isNaN(value)) {
+                    return value;
+                }
+
+                // Search through the lookup table rows for a match
+                let defaultValue: number | null = null;
+                
+                for (const row of attrDef.lut || []) {
+                    // Empty string means default for unmatched values
+                    if (row.r === "") {
+                        defaultValue = row.v;
+                        continue;
+                    }
+                    
+                    // Parse the range string
+                    if (this.isValueInRangeString(value, row.r)) {
+                        return row.v;
+                    }
+                }
+                
+                // If no match found but we have a default, use it
+                if (defaultValue !== null) {
+                    return defaultValue;
+                }
+                
+                // Otherwise keep the original value
+                return value;
+            });
+        }
+
+        // const msgBufIdxIn = msgBufIdx;
+
         // Move buffer position if using relative positioning
         msgBufIdx += attrUsesAbsPos ? 0 : numBytesConsumed;
+
+        // console.log(`RaftAttrHdlr.processMsgAttr attr ${attrDef.n} msgBufIdx ${msgBufIdxIn} msgBufIdx ${msgBufIdx} attrUsesAbsPos ${attrUsesAbsPos} numBytesConsumed ${numBytesConsumed} attrValues ${attrValues}`);
 
         // if (attrDef.n === "amb0") {
         //     console.log(`${new Date().toISOString()} ${attrDef.n} ${attrValues}`);
@@ -264,7 +379,7 @@ export default class AttributeHandler {
     private extractTimestampAndAdvanceIdx(msgBuffer: Uint8Array, msgBufIdx: number, timestampWrapHandler: DeviceTimeline): 
                     { newBufIdx: number, timestampUs: number } {
 
-        // Check there are enough characters for the timestamp
+        // Check there are enough bytes for the timestamp
         if (msgBufIdx + this.POLL_RESULT_TIMESTAMP_SIZE > msgBuffer.length) {
             return { newBufIdx: -1, timestampUs: 0 };
         }
@@ -278,8 +393,8 @@ export default class AttributeHandler {
             timestampUs = structUnpack(">I", tsBuffer)[0] as number * this.POLL_RESULT_RESOLUTION_US;
         }
 
-        // Check if time is before lastReportTimeMs - in which case a wrap around occurred to add on the max value
-        if (timestampUs < timestampWrapHandler.lastReportTimestampUs) {
+        // Check if time is before lastReportTimeMs by more than 100ms - in which case a wrap around occurred to add on the max value
+        if (timestampUs + 100000 < timestampWrapHandler.lastReportTimestampUs ) {
             timestampWrapHandler.reportTimestampOffsetUs += this.POLL_RESULT_WRAP_VALUE * this.POLL_RESULT_RESOLUTION_US;
         }
         timestampWrapHandler.lastReportTimestampUs = timestampUs;
@@ -294,5 +409,42 @@ export default class AttributeHandler {
         return { newBufIdx: msgBufIdx, timestampUs: timestampUs };
     }
 
+    // Helper method to check if a value is in a range string like "42,43,44-45,47"
+    private isValueInRangeString(value: number, rangeStr: string): boolean {
+        // Round to integer for comparison
+        const roundedValue = Math.round(value);
+        
+        // Split the range string by commas
+        const parts = rangeStr.split(',');
+        
+        for (const part of parts) {
+            // Check if it's a range (contains a hyphen)
+            if (part.includes('-')) {
+                const [startStr, endStr] = part.split('-');
+                
+                // Handle hex values
+                const start = startStr.toLowerCase().startsWith('0x') ? 
+                    parseInt(startStr, 16) : parseInt(startStr, 10);
+                const end = endStr.toLowerCase().startsWith('0x') ? 
+                    parseInt(endStr, 16) : parseInt(endStr, 10);
+                
+                if (!isNaN(start) && !isNaN(end) && roundedValue >= start && roundedValue <= end) {
+                    return true;
+                }
+            } 
+            // Check if it's a single value
+            else {
+                // Handle hex values
+                const partValue = part.toLowerCase().startsWith('0x') ? 
+                    parseInt(part, 16) : parseInt(part, 10);
+                
+                if (!isNaN(partValue) && roundedValue === partValue) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
 
 }

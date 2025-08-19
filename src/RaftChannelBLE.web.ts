@@ -67,16 +67,13 @@ export default class RaftChannelBLE implements RaftChannel {
 
   // RICREST command before disconnect
   ricRestCmdBeforeDisconnect(): string | null {
-    // NT: Sending blerestart *before* disconnecting results in timeout issues as the device is no longer connected when we try to actually disconnect
-    // suggested fix: allow callaback command to be sent after disconnect on the fw side 
-    // return "blerestart";
-    return null;
+    return "bledisconnect";
   }
 
   // isEnabled
   isEnabled() {
     if (navigator.bluetooth) {
-      RaftLog.error("Web Bluetooth is supported in your browser.");
+      RaftLog.warn("Web Bluetooth is supported in your browser.");
       return true;
     } else {
       window.alert(
@@ -101,7 +98,7 @@ export default class RaftChannelBLE implements RaftChannel {
   onDisconnected(event: Event): void {
     const device = event.target as BluetoothDevice;
     RaftLog.debug(`RaftChannelBLE.onDisconnected ${device.name}`);
-    if (this._bleDevice) {
+    if (this._bleDevice && this._eventListenerFn) {
       this._bleDevice.removeEventListener(
         "gattserverdisconnected",
         this._eventListenerFn
@@ -157,7 +154,7 @@ export default class RaftChannelBLE implements RaftChannel {
               }
 
               if (!service) {
-                RaftLog.error(
+                RaftLog.warn(
                   `RaftChannelBLE.connect - cannot get primary service - giving up`
                 );
                 return false;
@@ -211,13 +208,13 @@ export default class RaftChannelBLE implements RaftChannel {
                 this._isConnected = true;
                 return true;
               } catch (error) {
-                RaftLog.error(
+                RaftLog.warn(
                   `RaftChannelBLE.connect - cannot find characteristic: ${error}`
                 );
               }
             } catch (error) {
               if (connRetry === this._maxConnRetries - 1) {
-                RaftLog.error(
+                RaftLog.warn(
                   `RaftChannelBLE.connect - cannot get primary service ${error} - attempt #${connRetry + 1} - giving up`
                 );
               } else {
@@ -359,4 +356,17 @@ export default class RaftChannelBLE implements RaftChannel {
     }
     return false;
   }
+
+  // Method used for testing and simulation should never be called
+  sendTxMsgRaw(): boolean {
+    RaftLog.debug(`sendTxMsgRaw - not implemented`);
+    return false;
+  }
+
+  // Method used for testing and simulation should never be called
+  sendTxMsgRawAndWaitForReply<T>(): T {
+    RaftLog.debug(`sendTxMsgRawAndWaitForReply - not implemented`);
+    return null as T;
+  }
+
 }
