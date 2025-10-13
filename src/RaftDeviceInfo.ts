@@ -17,10 +17,26 @@ const attrTypeBits: { [key: string]: number } = {
     };
 
 export function getAttrTypeBits(attrType: string): number {
-    if (attrType in attrTypeBits) {
-        return attrTypeBits[attrType];
+    let repeat = 1;
+    let baseAttrType = attrType;
+
+    const repeatStartIdx = attrType.indexOf("[");
+    if (repeatStartIdx >= 0) {
+        const repeatEndIdx = attrType.indexOf("]", repeatStartIdx + 1);
+        if (repeatEndIdx > repeatStartIdx) {
+            const repeatStr = attrType.slice(repeatStartIdx + 1, repeatEndIdx);
+            const parsedRepeat = parseInt(repeatStr, 10);
+            if (Number.isFinite(parsedRepeat) && parsedRepeat > 0) {
+                repeat = parsedRepeat;
+            }
+            baseAttrType = attrType.slice(0, repeatStartIdx);
+        }
     }
-    return 8;
+
+    if (baseAttrType in attrTypeBits) {
+        return attrTypeBits[baseAttrType] * repeat;
+    }
+    return 8 * repeat;
 }
 
 export function isAttrTypeSigned(attrType: string): boolean {
