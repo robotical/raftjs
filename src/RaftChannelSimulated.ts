@@ -286,7 +286,7 @@ export default class RaftChannelSimulated implements RaftChannel {
 
     const attributes = deviceTypeInfo.resp.a;
     const dataBlockSizeBytes = deviceTypeInfo.resp.b;
-    
+
     // Create a buffer for the data
     const dataBuffer = new ArrayBuffer(dataBlockSizeBytes + 2);
     const dataView = new DataView(dataBuffer);
@@ -295,89 +295,55 @@ export default class RaftChannelSimulated implements RaftChannel {
     // Add 16 bit big endian deviceTimeMs mod 65536 to the buffer
     dataView.setUint16(bytePos, deviceTimeMs % 65536, false);
     bytePos += 2;
-    
-    // Calculate sine wave with phase offsets for each attribute
+
     const numAttributes = attributes.length;
-      // Adjust frequency based on the device interval with N samples per cycle
     const numSamplesPerCycle = 10;
-    let frequencyHz = 0.1; // Default frequency in Hz
-    if (deviceIntervalMs > 0) {
-      frequencyHz = (1000 / deviceIntervalMs) / numSamplesPerCycle;
-    }
+    const frequencyHz = (deviceIntervalMs > 0)
+      ? (1000 / deviceIntervalMs) / numSamplesPerCycle
+      : 0.1;
+    const timeRadians = deviceTimeMs * frequencyHz * (2 * Math.PI) / 1000;
 
-    // Amplitude of the sine wave (0 to 1)
-    const amplitude = 0.8;
-    
-    // Iterate through attributes and set values
-    for (let i = 0; i < numAttributes; i++) {
-      const attr = attributes[i];
-      // Calculate phase offset for this attribute
-      const phaseOffset = (2 * Math.PI * i) / numAttributes;
-      
-      // Generate sine wave value
-      const timeRadians = deviceTimeMs * frequencyHz * (2 * Math.PI) / 1000;
-      const sinValue = Math.sin(timeRadians + phaseOffset);
-      
-      // Scale the value to fit within the attribute's range
-      let scaledValue: number;
-      if (attr.r && attr.r.length >= 2) {
-        const minValue = attr.r[0];
-        const maxValue = attr.r[1];
-        const midPoint = (maxValue + minValue) / 2;
-        const range = (maxValue - minValue) / 2;
-        scaledValue = midPoint + sinValue * range * amplitude;
-      } else {
-        // Default range if not specified
-        scaledValue = sinValue * 1000 * amplitude;
-      }
-      
-      // Convert to raw integer value if needed
-      let rawValue = scaledValue;
-      if (attr.d) {
-        // Multiply by the divisor to get the raw value (reverse of what happens when decoding)
-        rawValue = scaledValue * attr.d;
-      }
-      
-      // Write the value to the buffer based on its type
-      if (attr.t === "b") {
-        dataView.setUint8(bytePos, Math.round(rawValue));
-        bytePos += 1;
-      } else if (attr.t === "B") {
-        dataView.setUint8(bytePos, Math.round(rawValue));
-        bytePos += 1;
-      } else if (attr.t === "c") {
-        dataView.setInt8(bytePos, Math.round(rawValue));
-        bytePos += 1;
-      } else if (attr.t === "C") {
-        dataView.setUint8(bytePos, Math.round(rawValue));
-        bytePos += 1;
-      } else if (attr.t === "<h") {
-        dataView.setInt16(bytePos, Math.round(rawValue), true); // Little endian
-        bytePos += 2;
-      } else if (attr.t === ">h") {
-        dataView.setInt16(bytePos, Math.round(rawValue), false); // Big endian
-        bytePos += 2;
-      } else if (attr.t === "<H") {
-        dataView.setUint16(bytePos, Math.round(rawValue), true); // Little endian
-        bytePos += 2;
-      } else if (attr.t === ">H") {
-        dataView.setUint16(bytePos, Math.round(rawValue), false); // Big endian
-        bytePos += 2;
-      } else if (attr.t === "f" || attr.t === "<f") {
-        dataView.setFloat32(bytePos, rawValue, true); // Little endian
-        bytePos += 4;
-      } else if (attr.t === ">f") {
-        dataView.setFloat32(bytePos, rawValue, false); // Big endian
-        bytePos += 4;
-      } else {
-        RaftLog.warn(`RaftChannelSimulated._createSimulatedDeviceInfoMsg - unsupported attribute type ${attr.t}`);
+    // Iterate through attributes and fill the payload
+    for (let attrIdx = 0; attrIdx < numAttributes; attrIdx++) {
+      const attr = attributes[attrIdx];
+      const { typeCode, repeatCount, littleEndian } = this._parseAttrType(attr.t);
+      const scaledValues = this._generateAttributeScaledValues(
+        attr,
+        attrIdx,
+        repeatCount,
+        numAttributes,
+        timeRadians,
+        deviceTimeMs
+      );
+
+      if (scaledValues.length !== repeatCount) {
+        RaftLog.warn(`RaftChannelSimulated._createSimulatedDeviceInfoMsg - value count mismatch for ${attr.n}`);
+        continue;
       }
 
+      for (let elemIdx = 0; elemIdx < repeatCount; elemIdx++) {
+        const scaledValue = scaledValues[elemIdx];
+        const rawValue = this._prepareRawValue(attr, typeCode, scaledValue);
+        const nextBytePos = this._writeRawValueToBuffer(
+          dataView,
+          bytePos,
+          typeCode,
+          littleEndian,
+          rawValue
+        );
+
+        if (nextBytePos < 0) {
+          RaftLog.warn(`RaftChannelSimulated._createSimulatedDeviceInfoMsg - buffer overflow writing ${attr.n}`);
+          break;
+        }
+
+        bytePos = nextBytePos;
+      }
     }
-    
+
     // Convert the buffer to a byte array
     const dataBytes = new Uint8Array(dataBuffer);
-    
+
     // Create the JSON message structure
     const message = {
       "BUS1": {
@@ -401,6 +367,264 @@ export default class RaftChannelSimulated implements RaftChannel {
 
   }
 
+  private _parseAttrType(attrType: string): { typeCode: string; repeatCount: number; littleEndian: boolean } {
+    const repeatMatch = attrType.match(/\[(\d+)\]\s*$/);
+    const repeatCount = repeatMatch ? parseInt(repeatMatch[1], 10) : 1;
+    const coreType = repeatMatch ? attrType.slice(0, repeatMatch.index) : attrType;
+    let littleEndian = false;
+    let typeCode = coreType.trim();
+
+    if (typeCode.startsWith("<")) {
+      littleEndian = true;
+      typeCode = typeCode.slice(1);
+    } else if (typeCode.startsWith(">")) {
+      littleEndian = false;
+      typeCode = typeCode.slice(1);
+    } else if (typeCode === "f") {
+      // Match previous behaviour - plain "f" treated as little endian floats
+      littleEndian = true;
+    }
+
+    return { typeCode, repeatCount, littleEndian };
+  }
+
+  private _generateAttributeScaledValues(
+    attr: any,
+    attrIdx: number,
+    repeatCount: number,
+    numAttributes: number,
+    timeRadians: number,
+    deviceTimeMs: number
+  ): number[] {
+    const amplitude = 0.8;
+
+    if (repeatCount > 1) {
+      const useThermalGrid = (attr && typeof attr.resolution === "string") || repeatCount >= 16;
+      if (useThermalGrid) {
+        return this._generateThermalGridValues(attr, repeatCount, timeRadians, deviceTimeMs);
+      }
+
+      const values: number[] = [];
+      for (let elemIdx = 0; elemIdx < repeatCount; elemIdx++) {
+        const phaseOffset = (2 * Math.PI * (attrIdx + elemIdx / repeatCount)) / Math.max(1, numAttributes);
+        const sinValue = Math.sin(timeRadians + phaseOffset);
+
+        if (Array.isArray(attr.r) && attr.r.length >= 2) {
+          const minValue = attr.r[0];
+          const maxValue = attr.r[1];
+          const midPoint = (maxValue + minValue) / 2;
+          const range = (maxValue - minValue) / 2;
+          const value = midPoint + sinValue * range * amplitude;
+          values.push(Math.min(maxValue, Math.max(minValue, value)));
+        } else {
+          values.push(sinValue * 1000 * amplitude);
+        }
+      }
+      return values;
+    }
+
+    const phaseOffset = numAttributes > 0 ? (2 * Math.PI * attrIdx) / numAttributes : 0;
+    const sinValue = Math.sin(timeRadians + phaseOffset);
+
+    if (Array.isArray(attr.r) && attr.r.length >= 2) {
+      const minValue = attr.r[0];
+      const maxValue = attr.r[1];
+      const midPoint = (maxValue + minValue) / 2;
+      const range = (maxValue - minValue) / 2;
+      const value = midPoint + sinValue * range * amplitude;
+      return [Math.min(maxValue, Math.max(minValue, value))];
+    }
+
+    return [sinValue * 1000 * amplitude];
+  }
+
+  private _generateThermalGridValues(
+    attr: any,
+    repeatCount: number,
+    timeRadians: number,
+    deviceTimeMs: number
+  ): number[] {
+    const { rows, cols } = this._getGridDimensions(attr, repeatCount);
+    const values: number[] = [];
+    const ambientBase = 24 + 2 * Math.sin(deviceTimeMs / 7000);
+    const hotspotPhase = deviceTimeMs / 3200;
+    const hotspotRow = (Math.sin(hotspotPhase) + 1) * (rows - 1) / 2;
+    const hotspotCol = (Math.cos(hotspotPhase) + 1) * (cols - 1) / 2;
+    const hotspotAmplitude = 6;
+    const sigma = Math.max(rows, cols) / 3 || 1;
+
+    for (let idx = 0; idx < repeatCount; idx++) {
+      const row = Math.floor(idx / cols);
+      const col = idx % cols;
+      const dist = Math.hypot(row - hotspotRow, col - hotspotCol);
+      const hotspot = hotspotAmplitude * Math.exp(-(dist * dist) / (2 * sigma * sigma));
+      const gentleWave = 0.5 * Math.sin(timeRadians + row * 0.35 + col * 0.25);
+      let value = ambientBase + hotspot + gentleWave;
+
+      if (Array.isArray(attr.r) && attr.r.length >= 2) {
+        value = Math.min(attr.r[1], Math.max(attr.r[0], value));
+      }
+
+      values.push(value);
+    }
+
+    return values;
+  }
+
+  private _getGridDimensions(attr: any, repeatCount: number): { rows: number; cols: number } {
+    if (attr && typeof attr.resolution === "string") {
+      const match = attr.resolution.match(/(\d+)\s*x\s*(\d+)/i);
+      if (match) {
+        const rows = parseInt(match[1], 10);
+        const cols = parseInt(match[2], 10);
+        if (rows > 0 && cols > 0) {
+          return { rows, cols };
+        }
+      }
+    }
+
+    const side = Math.round(Math.sqrt(repeatCount));
+    if (side > 0 && side * side === repeatCount) {
+      return { rows: side, cols: side };
+    }
+
+    return { rows: repeatCount, cols: 1 };
+  }
+
+  private _prepareRawValue(attr: any, typeCode: string, scaledValue: number): number {
+    if (this._isFloatType(typeCode)) {
+      return scaledValue;
+    }
+
+    let raw = scaledValue;
+
+    if (attr && typeof attr.a === "number") {
+      raw -= attr.a;
+    }
+    if (attr && typeof attr.d === "number") {
+      raw *= attr.d;
+    }
+    if (attr && typeof attr.s === "number" && attr.s !== 0) {
+      const shift = attr.s;
+      const shiftFactor = Math.pow(2, Math.abs(shift));
+      if (shift > 0) {
+        raw *= shiftFactor;
+      } else {
+        raw /= shiftFactor;
+      }
+    }
+
+    return Math.round(raw);
+  }
+
+  private _writeRawValueToBuffer(
+    dataView: DataView,
+    bytePos: number,
+    typeCode: string,
+    littleEndian: boolean,
+    rawValue: number
+  ): number {
+    const valueSize = this._byteSizeForType(typeCode);
+    if (valueSize <= 0 || bytePos + valueSize > dataView.byteLength) {
+      return -1;
+    }
+
+    switch (typeCode) {
+      case "b":
+        dataView.setInt8(bytePos, this._clampRawValue(rawValue, typeCode));
+        break;
+      case "c":
+        dataView.setInt8(bytePos, this._clampRawValue(rawValue, typeCode));
+        break;
+      case "B":
+      case "C":
+        dataView.setUint8(bytePos, this._clampRawValue(rawValue, typeCode));
+        break;
+      case "?":
+        dataView.setUint8(bytePos, rawValue ? 1 : 0);
+        break;
+      case "h":
+        dataView.setInt16(bytePos, this._clampRawValue(rawValue, typeCode), littleEndian);
+        break;
+      case "H":
+        dataView.setUint16(bytePos, this._clampRawValue(rawValue, typeCode), littleEndian);
+        break;
+      case "i":
+      case "l":
+        dataView.setInt32(bytePos, this._clampRawValue(rawValue, typeCode), littleEndian);
+        break;
+      case "I":
+      case "L":
+        dataView.setUint32(bytePos, this._clampRawValue(rawValue, typeCode), littleEndian);
+        break;
+      case "f":
+        dataView.setFloat32(bytePos, rawValue, littleEndian);
+        break;
+      case "d":
+        dataView.setFloat64(bytePos, rawValue, littleEndian);
+        break;
+      default:
+        RaftLog.warn(`RaftChannelSimulated._writeRawValueToBuffer - unsupported attribute type ${typeCode}`);
+        return -1;
+    }
+
+    return bytePos + valueSize;
+  }
+
+  private _byteSizeForType(typeCode: string): number {
+    switch (typeCode) {
+      case "b":
+      case "B":
+      case "c":
+      case "C":
+      case "?":
+        return 1;
+      case "h":
+      case "H":
+        return 2;
+      case "i":
+      case "I":
+      case "l":
+      case "L":
+      case "f":
+        return 4;
+      case "d":
+        return 8;
+      default:
+        return 0;
+    }
+  }
+
+  private _clampRawValue(rawValue: number, typeCode: string): number {
+    const value = Math.round(rawValue);
+
+    switch (typeCode) {
+      case "b":
+      case "c":
+        return Math.max(-128, Math.min(127, value));
+      case "B":
+      case "C":
+      case "?":
+        return Math.max(0, Math.min(255, value));
+      case "h":
+        return Math.max(-32768, Math.min(32767, value));
+      case "H":
+        return Math.max(0, Math.min(65535, value));
+      case "i":
+      case "l":
+        return Math.max(-2147483648, Math.min(2147483647, value));
+      case "I":
+      case "L":
+        return Math.max(0, Math.min(4294967295, value));
+      default:
+        return value;
+    }
+  }
+
+  private _isFloatType(typeCode: string): boolean {
+    return typeCode === "f" || typeCode === "d";
+  }
+
   // Helper function to convert bytes to hex string
   private _bytesToHexStr(bytes: Uint8Array): string {
     return Array.from(bytes)
@@ -411,6 +635,29 @@ export default class RaftChannelSimulated implements RaftChannel {
   // Simulated device type information - this is a copy of part of DeviceTypeInfo in RaftCore
   private _deviceTypeInfo: DeviceTypeInfoRecs = 
   {
+    "AMG8833": {
+      "name": "AMG8833",
+      "desc": "Thermal Camera",
+      "manu": "Panasonic",
+      "type": "AMG8833",
+      "clas": ["TCAM"],
+      "resp": {
+          "b": 128,
+          "a": [
+              {
+                  "n": "temp",
+                  "t": "<h[64]",
+                  "resolution": "8x8",
+                  "u": "&deg;C",
+                  "r": [-55, 125],
+                  "s": -4,
+                  "d": 64,
+                  "f": ".2f",
+                  "o": "float"
+              }
+          ]
+       }
+    },
     "LSM6DS": {
       "name": "LSM6DS",
       "desc": "6-Axis IMU",

@@ -73,6 +73,7 @@ export interface DeviceTypeAttribute {
     vf?: boolean | number;          // Display attribute value in the device info panel
     vft?: string;                   // Attribute validity based on the value of another named attribute
     lut?: Array<LUTRow>;            // Lookup table for the attribute value - each row is a lookup table for a range of values e.g. [{"r":"0x20-0x30","v":0},{"r":"1,2,3","v":42},{r:"","v":1}]
+    resolution?: string;            
 }
 
 export interface CustomFunctionDefinition {
