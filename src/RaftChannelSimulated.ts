@@ -296,49 +296,62 @@ export default class RaftChannelSimulated implements RaftChannel {
     dataView.setUint16(bytePos, deviceTimeMs % 65536, false);
     bytePos += 2;
 
-    const numAttributes = attributes.length;
-    const numSamplesPerCycle = 10;
-    const frequencyHz = (deviceIntervalMs > 0)
-      ? (1000 / deviceIntervalMs) / numSamplesPerCycle
-      : 0.1;
-    const timeRadians = deviceTimeMs * frequencyHz * (2 * Math.PI) / 1000;
+    const handledByCustomGenerator = this._fillCustomRawData(
+      deviceTypeInfo,
+      dataView,
+      bytePos,
+      dataBlockSizeBytes,
+      deviceIntervalMs,
+      deviceTimeMs
+    );
 
-    // Iterate through attributes and fill the payload
-    for (let attrIdx = 0; attrIdx < numAttributes; attrIdx++) {
-      const attr = attributes[attrIdx];
-      const { typeCode, repeatCount, littleEndian } = this._parseAttrType(attr.t);
-      const scaledValues = this._generateAttributeScaledValues(
-        attr,
-        attrIdx,
-        repeatCount,
-        numAttributes,
-        timeRadians,
-        deviceTimeMs
-      );
+    if (!handledByCustomGenerator) {
+      const numAttributes = attributes.length;
+      const numSamplesPerCycle = 10;
+      const frequencyHz = (deviceIntervalMs > 0)
+        ? (1000 / deviceIntervalMs) / numSamplesPerCycle
+        : 0.1;
+      const timeRadians = deviceTimeMs * frequencyHz * (2 * Math.PI) / 1000;
 
-      if (scaledValues.length !== repeatCount) {
-        RaftLog.warn(`RaftChannelSimulated._createSimulatedDeviceInfoMsg - value count mismatch for ${attr.n}`);
-        continue;
-      }
-
-      for (let elemIdx = 0; elemIdx < repeatCount; elemIdx++) {
-        const scaledValue = scaledValues[elemIdx];
-        const rawValue = this._prepareRawValue(attr, typeCode, scaledValue);
-        const nextBytePos = this._writeRawValueToBuffer(
-          dataView,
-          bytePos,
-          typeCode,
-          littleEndian,
-          rawValue
+      // Iterate through attributes and fill the payload
+      for (let attrIdx = 0; attrIdx < numAttributes; attrIdx++) {
+        const attr = attributes[attrIdx];
+        const { typeCode, repeatCount, littleEndian } = this._parseAttrType(attr.t);
+        const scaledValues = this._generateAttributeScaledValues(
+          attr,
+          attrIdx,
+          repeatCount,
+          numAttributes,
+          timeRadians,
+          deviceTimeMs
         );
 
-        if (nextBytePos < 0) {
-          RaftLog.warn(`RaftChannelSimulated._createSimulatedDeviceInfoMsg - buffer overflow writing ${attr.n}`);
-          break;
+        if (scaledValues.length !== repeatCount) {
+          RaftLog.warn(`RaftChannelSimulated._createSimulatedDeviceInfoMsg - value count mismatch for ${attr.n}`);
+          continue;
         }
 
-        bytePos = nextBytePos;
+        for (let elemIdx = 0; elemIdx < repeatCount; elemIdx++) {
+          const scaledValue = scaledValues[elemIdx];
+          const rawValue = this._prepareRawValue(attr, typeCode, scaledValue);
+          const nextBytePos = this._writeRawValueToBuffer(
+            dataView,
+            bytePos,
+            typeCode,
+            littleEndian,
+            rawValue
+          );
+
+          if (nextBytePos < 0) {
+            RaftLog.warn(`RaftChannelSimulated._createSimulatedDeviceInfoMsg - buffer overflow writing ${attr.n}`);
+            break;
+          }
+
+          bytePos = nextBytePos;
+        }
       }
+    } else {
+      bytePos += dataBlockSizeBytes;
     }
 
     // Convert the buffer to a byte array
@@ -469,6 +482,47 @@ export default class RaftChannelSimulated implements RaftChannel {
     }
 
     return values;
+  }
+
+  private _fillCustomRawData(
+    deviceTypeInfo: DeviceTypeInfo,
+    dataView: DataView,
+    bytePos: number,
+    dataBlockSizeBytes: number,
+    deviceIntervalMs: number,
+    deviceTimeMs: number
+  ): boolean {
+    if (deviceTypeInfo.type !== "LTR-329") {
+      return false;
+    }
+
+    if (dataBlockSizeBytes < 4) {
+      return false;
+    }
+
+    const frequencyHz = (deviceIntervalMs > 0)
+      ? (1000 / deviceIntervalMs) / 10
+      : 0.1;
+    const timeRadians = deviceTimeMs * frequencyHz * (2 * Math.PI) / 1000;
+
+    const range = deviceTypeInfo.resp?.a?.[0]?.r ?? [0, 64000];
+    const minLux = range[0] ?? 0;
+    const maxLux = range[1] ?? 64000;
+
+    const baseLux = (maxLux + minLux) / 4;
+    const amplitudeLux = (maxLux - minLux) / 6;
+    let combined = Math.round(baseLux + amplitudeLux * Math.sin(timeRadians));
+    combined = Math.max(minLux, Math.min(maxLux, combined));
+
+    const irBase = combined * 0.35;
+    const irVariance = (combined * 0.15) * Math.sin(timeRadians + Math.PI / 4);
+    let ir = Math.round(irBase + irVariance);
+    ir = Math.max(minLux, Math.min(combined, ir));
+
+    dataView.setUint16(bytePos, combined, true);
+    dataView.setUint16(bytePos + 2, ir, true);
+
+    return true;
   }
 
   private _getGridDimensions(attr: any, repeatCount: number): { rows: number; cols: number } {
@@ -723,6 +777,39 @@ export default class RaftChannelSimulated implements RaftChannel {
               }
           ]
        }
+    },
+    "LTR-329": {
+      "name": "LTR-329",
+      "desc": "Visible light and IR Sensor",
+      "manu": "Lite On",
+      "type": "LTR-329",
+      "clas": ["LGHT"],
+      "resp": {
+        "b": 4,
+        "a": [
+          {
+            "n": "ir",
+            "t": "<h",
+            "u": "lux",
+            "r": [0, 64000],
+            "f": "d",
+            "o": "uint16"
+          },
+          {
+            "n": "visible",
+            "t": "<h",
+            "u": "lux",
+            "r": [0, 64000],
+            "f": "d",
+            "o": "uint16"
+          }
+        ],
+        "c": {
+          "n": "ltr329_light_calc",
+          "c": "int combined = buf[0] + (((uint16_t)buf[1])<<8); out.ir = buf[2] + (((uint16_t)buf[3])<<8); out.visible = combined - out.ir;",
+          "j": "let combined = buf[0] + (buf[1] << 8); let ir = buf[2] + (buf[3] << 8); attrValues['ir'].push(ir); attrValues['visible'].push(Math.max(0, combined - ir));"
+        }
+      }
     }
   };
  

@@ -79,6 +79,7 @@ export interface DeviceTypeAttribute {
 export interface CustomFunctionDefinition {
     n: string;                      // Function name
     c: string;                      // Function pseudo-code
+    j?: string;                     // Optional JavaScript implementation
 }
 
 export interface DeviceTypePollRespMetadata {
