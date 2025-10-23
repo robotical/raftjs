@@ -492,37 +492,70 @@ export default class RaftChannelSimulated implements RaftChannel {
     deviceIntervalMs: number,
     deviceTimeMs: number
   ): boolean {
-    if (deviceTypeInfo.type !== "LTR-329") {
-      return false;
+    switch (deviceTypeInfo.type) {
+      case "LTR-329": {
+        if (dataBlockSizeBytes < 4) {
+          return false;
+        }
+
+        const frequencyHz = (deviceIntervalMs > 0)
+          ? (1000 / deviceIntervalMs) / 10
+          : 0.1;
+        const timeRadians = deviceTimeMs * frequencyHz * (2 * Math.PI) / 1000;
+
+        const range = deviceTypeInfo.resp?.a?.[0]?.r ?? [0, 64000];
+        const minLux = range[0] ?? 0;
+        const maxLux = range[1] ?? 64000;
+
+        const baseLux = (maxLux + minLux) / 4;
+        const amplitudeLux = (maxLux - minLux) / 6;
+        let combined = Math.round(baseLux + amplitudeLux * Math.sin(timeRadians));
+        combined = Math.max(minLux, Math.min(maxLux, combined));
+
+        const irBase = combined * 0.35;
+        const irVariance = (combined * 0.15) * Math.sin(timeRadians + Math.PI / 4);
+        let ir = Math.round(irBase + irVariance);
+        ir = Math.max(minLux, Math.min(combined, ir));
+
+        dataView.setUint16(bytePos, combined, true);
+        dataView.setUint16(bytePos + 2, ir, true);
+
+        return true;
+      }
+      case "RoboticalServo": {
+        if (dataBlockSizeBytes < 6) {
+          return false;
+        }
+
+        const swingAmplitudeDeg = 90;
+        const cycleMs = 4000;
+        const angularSpeedRadPerMs = (2 * Math.PI) / cycleMs;
+        const phaseRadians = (deviceTimeMs % cycleMs) * angularSpeedRadPerMs;
+
+        const angleDegrees = swingAmplitudeDeg * Math.sin(phaseRadians);
+        const velocityDegPerSec = swingAmplitudeDeg * angularSpeedRadPerMs * 1000 * Math.cos(phaseRadians);
+        const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+        const angleRaw = clamp(Math.round(angleDegrees * 10), -1800, 1800);
+        let velocityRaw = Math.round(velocityDegPerSec);
+        velocityRaw = clamp(velocityRaw, -32768, 32767);
+
+        let currentRaw = Math.round(20 + 0.08 * Math.abs(velocityDegPerSec));
+        currentRaw = clamp(currentRaw, 0, 127);
+
+        const isMoving = Math.abs(velocityDegPerSec) > 5;
+        const stateRaw = (0x02) | (isMoving ? 0x01 : 0);
+
+        dataView.setInt16(bytePos, angleRaw, false);
+        dataView.setInt8(bytePos + 2, currentRaw);
+        dataView.setUint8(bytePos + 3, stateRaw);
+        dataView.setInt16(bytePos + 4, velocityRaw, false);
+
+        return true;
+      }
+      default:
+        return false;
     }
-
-    if (dataBlockSizeBytes < 4) {
-      return false;
-    }
-
-    const frequencyHz = (deviceIntervalMs > 0)
-      ? (1000 / deviceIntervalMs) / 10
-      : 0.1;
-    const timeRadians = deviceTimeMs * frequencyHz * (2 * Math.PI) / 1000;
-
-    const range = deviceTypeInfo.resp?.a?.[0]?.r ?? [0, 64000];
-    const minLux = range[0] ?? 0;
-    const maxLux = range[1] ?? 64000;
-
-    const baseLux = (maxLux + minLux) / 4;
-    const amplitudeLux = (maxLux - minLux) / 6;
-    let combined = Math.round(baseLux + amplitudeLux * Math.sin(timeRadians));
-    combined = Math.max(minLux, Math.min(maxLux, combined));
-
-    const irBase = combined * 0.35;
-    const irVariance = (combined * 0.15) * Math.sin(timeRadians + Math.PI / 4);
-    let ir = Math.round(irBase + irVariance);
-    ir = Math.max(minLux, Math.min(combined, ir));
-
-    dataView.setUint16(bytePos, combined, true);
-    dataView.setUint16(bytePos + 2, ir, true);
-
-    return true;
   }
 
   private _getGridDimensions(attr: any, repeatCount: number): { rows: number; cols: number } {
@@ -810,6 +843,69 @@ export default class RaftChannelSimulated implements RaftChannel {
           "j": "let combined = buf[0] + (buf[1] << 8); let ir = buf[2] + (buf[3] << 8); attrValues['ir'].push(ir); attrValues['visible'].push(Math.max(0, combined - ir));"
         }
       }
+    },
+    "RoboticalServo": {
+      "name": "Robotical Servo",
+      "desc": "Servo",
+      "manu": "Robotical",
+      "type": "RoboticalServo",
+      "clas": ["SRVO"],
+      "resp": {
+        "b": 6,
+        "a": [
+          {
+            "n": "angle",
+            "t": ">h",
+            "r": [-180.0, 180.0],
+            "f": ".1f",
+            "d": 10,
+            "o": "int16",
+            "u": "degrees"
+          },
+          {
+            "n": "current",
+            "t": "b",
+            "r": [-128, 127],
+            "f": "d",
+            "o": "int8"
+          },
+          {
+            "n": "state",
+            "t": "B",
+            "r": [0, 255],
+            "f": "02x",
+            "o": "uint8"
+          },
+          {
+            "n": "velocity",
+            "t": ">h",
+            "r": [-32768, 32767],
+            "f": "d",
+            "o": "int16"
+          }
+        ]
+      },
+      "actions": [
+        {
+          "n": "angle",
+          "t": ">h",
+          "w": "0001",
+          "wz": "0064",
+          "f": ".1f",
+          "mul": 10,
+          "sub": 0,
+          "r": [-180.0, 180.0],
+          "d": 0
+        },
+        {
+          "n": "enable",
+          "t": "B",
+          "w": "20",
+          "f": "b",
+          "r": [0, 1],
+          "d": 1
+        }
+      ]
     }
   };
  
