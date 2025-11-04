@@ -522,6 +522,70 @@ export default class RaftChannelSimulated implements RaftChannel {
 
         return true;
       }
+      case "LTR-390": {
+        if (dataBlockSizeBytes < 5) {
+          return false;
+        }
+
+        const numerator = (deviceIntervalMs > 0) ? (1000 / deviceIntervalMs) : 0;
+        const timeRadians = deviceTimeMs * numerator * (2 * Math.PI) / 1000 / 10;
+        const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+        const ambientLux = clamp(8000 + 4500 * Math.sin(timeRadians), 0, 64000);
+        const ambientRaw = clamp(Math.round(ambientLux * 1.25), 0, 0xFFFFF);
+        dataView.setUint8(bytePos, ambientRaw & 0xFF);
+        dataView.setUint8(bytePos + 1, (ambientRaw >> 8) & 0xFF);
+        dataView.setUint8(bytePos + 2, (ambientRaw >> 16) & 0x0F);
+
+        const uviIndex = clamp(3.5 + 1.8 * Math.sin(timeRadians + Math.PI / 3), 0, 12);
+        const uviRaw = clamp(Math.round(uviIndex * 24), 0, 0xFFFF);
+        dataView.setUint16(bytePos + 3, uviRaw, true);
+
+        return true;
+      }
+      case "RoboticalLEDRing": {
+        if (dataBlockSizeBytes < 1) {
+          return false;
+        }
+
+        const animationPhase = (deviceTimeMs % 6000) / 6000;
+        const patternIndex = Math.floor(animationPhase * 6) % 6;
+        const brightness = Math.round((Math.sin(deviceTimeMs / 600) + 1) * 127.5);
+        const isAnimating = Math.sin(deviceTimeMs / 1500) > 0;
+        const status = ((patternIndex & 0x07) << 4) | Math.min(0x0F, brightness >> 4) | (isAnimating ? 0x80 : 0x00);
+
+        dataView.setUint8(bytePos, status & 0xFF);
+
+        return true;
+      }
+      case "RoboticalDCMotor": {
+        if (dataBlockSizeBytes < 4) {
+          return false;
+        }
+
+        const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+        const cycleMs = 3200;
+        const cycleIndex = Math.floor(deviceTimeMs / cycleMs);
+        const direction = (cycleIndex % 2 === 0) ? 1 : -1;
+        const progress = (deviceTimeMs % cycleMs) / cycleMs;
+        const baseAngle = (progress * 360) - 180;
+        const angleDegrees = direction > 0 ? baseAngle : -baseAngle;
+
+        const angleRaw = clamp(Math.round(angleDegrees * 10), -1800, 1800);
+        const ripple = 6 * Math.sin((deviceTimeMs % cycleMs) / 180);
+        const loadComponent = Math.abs(baseAngle) * 0.12;
+        const currentRaw = clamp(Math.round(24 + loadComponent + ripple), -128, 127);
+
+        const highLoad = Math.abs(loadComponent) > 8;
+        const directionBit = direction > 0 ? 0x01 : 0x00;
+        const stateRaw = 0x02 | directionBit | (highLoad ? 0x04 : 0x00);
+
+        dataView.setInt16(bytePos, angleRaw, false);
+        dataView.setInt8(bytePos + 2, currentRaw);
+        dataView.setUint8(bytePos + 3, stateRaw);
+
+        return true;
+      }
       case "RoboticalServo": {
         if (dataBlockSizeBytes < 6) {
           return false;
@@ -844,6 +908,38 @@ export default class RaftChannelSimulated implements RaftChannel {
         }
       }
     },
+    "LTR-390": {
+      "name": "LTR-390",
+      "desc": "UV and Visible light sensor",
+      "manu": "Lite On",
+      "type": "LTR-390",
+      "clas": ["LGHT"],
+      "resp": {
+        "b": 5,
+        "a": [
+          {
+            "n": "ambient",
+            "t": "<H",
+            "u": "lux",
+            "r": [0, 64000],
+            "d": 1.25,
+            "f": ".2f",
+            "o": "float"
+          },
+          {
+            "n": "UVI",
+            "at": 3,
+            "t": "<H",
+            "u": "index",
+            "r": [0, 64000],
+            "d": 24,
+            "f": ".3f",
+            "o": "float"
+          }
+        ]
+      },
+      "actions": []
+    },
     "RoboticalServo": {
       "name": "Robotical Servo",
       "desc": "Servo",
@@ -904,6 +1000,102 @@ export default class RaftChannelSimulated implements RaftChannel {
           "f": "b",
           "r": [0, 1],
           "d": 1
+        }
+      ]
+    },
+    "RoboticalDCMotor": {
+      "name": "Robotical DC Motor",
+      "desc": "DCmotor",
+      "manu": "Robotical",
+      "type": "RoboticalDCMotor",
+      "clas": ["MOTR"],
+      "resp": {
+        "b": 4,
+        "a": [
+          {
+            "n": "angle",
+            "t": ">h",
+            "r": [-180.0, 180.0],
+            "f": ".1f",
+            "d": 10,
+            "o": "int16",
+            "u": "degrees"
+          },
+          {
+            "n": "current",
+            "t": "b",
+            "r": [-128, 127],
+            "f": "d",
+            "o": "int8"
+          },
+          {
+            "n": "state",
+            "t": "B",
+            "r": [0, 255],
+            "f": "02x",
+            "o": "uint8"
+          }
+        ]
+      },
+      "actions": [
+        {
+          "n": "power",
+          "t": ">h",
+          "w": "0001",
+          "wz": "0064",
+          "f": ".1f",
+          "mul": 10,
+          "sub": 0,
+          "r": [-180.0,180.0],
+          "d": 0
+        },
+        {
+          "n": "enable",
+          "t": "B",
+          "w": "20",
+          "f": "b",
+          "r": [0,1],
+          "d": 1
+        }
+      ]
+    },
+    "RoboticalLEDRing": {
+      "name": "Robotical LED Ring",
+      "desc": "12 RGB LED Ring",
+      "manu": "Robotical",
+      "type": "RoboticalLEDRing",
+      "clas": ["LED"],
+      "resp": {
+        "b": 1,
+        "a": [
+          {
+            "n": "status",
+            "t": "B",
+            "r": [0, 255],
+            "f": "02x",
+            "o": "uint8"
+          }
+        ]
+      },
+      "actions": [
+        {
+          "n": "pixels",
+          "t": "BBBB",
+          "w": "04",
+          "f": "LEDPIX",
+          "NX": 3,
+          "NY": 1,
+          "concat": false,
+          "r": [0,255]
+        },
+        {
+          "n": "brightness",
+          "t": "B",
+          "w": "FF01",
+          "wz": "&p100",
+          "f": "b",
+          "r": [0,255],
+          "d": 100
         }
       ]
     }
