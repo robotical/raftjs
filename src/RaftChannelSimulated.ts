@@ -543,6 +543,44 @@ export default class RaftChannelSimulated implements RaftChannel {
 
         return true;
       }
+      case "VL53L4CD": {
+        if (dataBlockSizeBytes < 3) {
+          return false;
+        }
+
+        const rangeMinMm = 40;
+        const rangeMaxMm = 1300;
+        const cycleMs = 9000;
+        const timeInCycle = deviceTimeMs % cycleMs;
+
+        // Simulate periods where the sensor reports invalid readings (target lost)
+        const invalidReading =
+          timeInCycle < 600 ||
+          (timeInCycle > 4200 && timeInCycle < 5100) ||
+          (timeInCycle > 7800);
+        const isValid = !invalidReading;
+
+        // Generate a smooth oscillating distance while valid
+        const phase = (deviceTimeMs % cycleMs) / cycleMs;
+        const smoothWave = 0.5 * (1 - Math.cos(phase * 2 * Math.PI));
+        const slowDrift = 0.05 * Math.sin(deviceTimeMs / 5000);
+        const fastRipple = 0.02 * Math.sin(deviceTimeMs / 200);
+        const normalized = Math.min(1, Math.max(0, smoothWave + slowDrift + fastRipple));
+        let distanceMm = Math.round(rangeMinMm + normalized * (rangeMaxMm - rangeMinMm));
+
+        // Clamp to the reported range
+        distanceMm = Math.max(rangeMinMm, Math.min(rangeMaxMm, distanceMm));
+
+        if (!isValid) {
+          distanceMm = 0;
+        }
+
+        const statusRaw = isValid ? 0x00 : 0x04;
+        dataView.setUint8(bytePos, statusRaw);
+        dataView.setUint16(bytePos + 1, distanceMm, false);
+
+        return true;
+      }
       case "RoboticalLEDRing": {
         if (dataBlockSizeBytes < 1) {
           return false;
@@ -939,6 +977,40 @@ export default class RaftChannelSimulated implements RaftChannel {
         ]
       },
       "actions": []
+    },
+    "VL53L4CD": {
+      "name": "VL53L4CD",
+      "desc": "ToF distance sensor with range 0-1.3m",
+      "manu": "ST",
+      "type": "VL53L4CD",
+      "clas": ["DIST"],
+      "resp": {
+        "b": 3,
+        "a": [
+          {
+            "n": "valid",
+            "t": "B",
+            "u": "",
+            "r": [0, 1],
+            "m": "0x04",
+            "x": "0x04",
+            "s": 2,
+            "f": "b",
+            "o": "bool",
+            "vs": false
+          },
+          {
+            "n": "dist",
+            "t": ">H",
+            "u": "mm",
+            "r": [0, 65535],
+            "f": "3d",
+            "o": "uint16",
+            "vft": "valid"
+          }
+        ],
+        "us": 100000
+      }
     },
     "RoboticalServo": {
       "name": "Robotical Servo",
