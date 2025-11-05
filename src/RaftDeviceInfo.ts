@@ -59,7 +59,7 @@ export interface DeviceTypeAttribute {
     at?: number | number[];         // Start pos in buffer (after timestamp) if present (otherwise use relative position) or array of byte positions for non-contiguous data
     u?: string;                     // Units (e.g. mm)
     r?: number[];                   // Range (either min, max or min, max, step or discrete values)
-    x?: string;                     // XOR bit mask to invert bits in the attribute value
+    x?: number | string;            // XOR bit mask to invert bits in the attribute value
     m?: number | string;            // AND bit mask to extract the attribute value from the message
     s?: number;                     // Shift value to shift the attribute value to the right (or left if negative)
     sb?: number;                    // Sign-bit position (0-based)
