@@ -14,7 +14,7 @@ import RaftChannelWebSocket from "./RaftChannelWebSocket";
 import RaftChannelWebSerial from "./RaftChannelWebSerial";
 import RaftChannelSimulated from "./RaftChannelSimulated";
 import RaftCommsStats from "./RaftCommsStats";
-import { RaftEventFn, RaftOKFail, RaftFileSendType, RaftFileDownloadResult, RaftProgressCBType, RaftBridgeSetupResp, RaftFileDownloadFn, RaftReportMsg } from "./RaftTypes";
+import { RaftEventFn, RaftOKFail, RaftFileSendType, RaftFileDownloadResult, RaftProgressCBType, RaftStreamDataProgressCBType, RaftBridgeSetupResp, RaftFileDownloadFn, RaftReportMsg } from "./RaftTypes";
 import RaftSystemUtils from "./RaftSystemUtils";
 import RaftFileHandler from "./RaftFileHandler";
 import RaftStreamHandler from "./RaftStreamHandler";
@@ -23,8 +23,7 @@ import { RaftConnEvent, RaftConnEventNames } from "./RaftConnEvents";
 import { RaftGetSystemTypeCBType, RaftSystemType } from "./RaftSystemType";
 import { RaftUpdateEvent, RaftUpdateEventNames } from "./RaftUpdateEvents";
 import RaftUpdateManager from "./RaftUpdateManager";
-import { createBLEChannel } from "./RaftChannelBLEFactory";
-
+import { createBLEChannel } from "./RaftChannelBLEFactory";import { getHostPosixTZ } from './RaftTimezone';
 
 export default class RaftConnector {
 
@@ -214,7 +213,22 @@ export default class RaftConnector {
    * Initialize the Raft channel
    */
   async initializeChannel(method: string): Promise<boolean> {
+    // Disconnect any existing channel first to avoid stale connections
+    RaftLog.verbose(`[RaftConnector.initializeChannel] START method=${method} hasExistingChannel=${!!this._raftChannel}`);
+    if (this._raftChannel) {
+      RaftLog.verbose(`[RaftConnector.initializeChannel] Disconnecting existing channel...`);
+      try {
+        await this._raftChannel.disconnect();
+        RaftLog.verbose(`[RaftConnector.initializeChannel] Existing channel disconnected successfully`);
+      } catch (e) {
+        RaftLog.warn(`[RaftConnector.initializeChannel] Error disconnecting existing channel: ${e}`);
+      }
+      this._raftChannel = null;
+      RaftLog.verbose(`[RaftConnector.initializeChannel] Existing channel nulled`);
+    }
+
     // Initialize raft channel
+    RaftLog.verbose(`[RaftConnector.initializeChannel] Creating new channel...`);
     if (method === 'WebBLE' || method === 'PhoneBLE') {
       const RaftChannelBLE = createBLEChannel();
       this._raftChannel = new RaftChannelBLE();
@@ -268,7 +282,7 @@ export default class RaftConnector {
     // Store locator
     this._channelConnLocator = locator;
 
-    // Connect
+    // Connect channel first (system type resolution needs a live connection)
     let connOk = false;
     try {
       // Event
@@ -281,9 +295,9 @@ export default class RaftConnector {
     }
 
     if (connOk) {
-      // Get system type
+
+      // Resolve system type now that the channel is connected
       if (this._getSystemTypeCB) {
-        // Get system type
         this._systemType = await this._getSystemTypeCB(this._raftSystemUtils);
 
         // Set defaults
@@ -310,14 +324,36 @@ export default class RaftConnector {
         }
       }
 
+      // configure file handler
+      this.configureFileHandler(this._raftChannel.fhFileBlockSize(), this._raftChannel.fhBatchAckSize());
+
+      // Sync time to device if enabled (default: true)
+      const syncTime = this._systemType?.connectorOptions?.syncTimeOnConnect ?? true;
+      if (syncTime) {
+        try {
+          const now = new Date();
+          const utc = now.toISOString().replace(/\.\d{3}Z$/, 'Z');
+          const params: Record<string, string> = { UTC: utc };
+          const posixTZ = getHostPosixTZ();
+          if (posixTZ) {
+            params.tz = posixTZ;
+          }
+          await this.sendRICRESTMsg('datetime', params);
+          RaftLog.info(`connect synced time to device: ${utc}${posixTZ ? ` tz=${posixTZ}` : ''}`);
+        } catch (error) {
+          RaftLog.warn(`connect time sync failed: ${error}`);
+        }
+      }
+
       // Send connected event
       this.onConnEvent(RaftConnEvent.CONN_CONNECTED);
 
     } else {
       // Failed Event
       this.onConnEvent(RaftConnEvent.CONN_CONNECTION_FAILED);
-      // configure file handler
-      this.configureFileHandler(this._raftChannel.fhFileBlockSize(), this._raftChannel.fhBatchAckSize());
+
+      // Clear system type
+      this._systemType = null;
     }
 
     return connOk;
@@ -327,8 +363,12 @@ export default class RaftConnector {
     // Disconnect
     this._retryIfLostIsConnected = false;
     if (this._raftChannel) {
+      // Store reference to channel before async operations to avoid race condition
+      const channelToDisconnect = this._raftChannel;
+      this._raftChannel = null;
+      
       // Check if there is a RICREST command to send before disconnecting
-      const ricRestCommand = this._raftChannel.ricRestCmdBeforeDisconnect();
+      const ricRestCommand = channelToDisconnect.ricRestCmdBeforeDisconnect();
       if (ricRestCommand) {
         console.log(`sending RICREST command before disconnect: ${ricRestCommand}`);
         await this.sendRICRESTMsg(ricRestCommand, {});
@@ -336,8 +376,7 @@ export default class RaftConnector {
       // Pause a little before disconnecting
       await new Promise(resolve => setTimeout(resolve, 1000));
       // await this.sendRICRESTMsg("bledisc", {});
-      await this._raftChannel.disconnect();
-      this._raftChannel = null;
+      await channelToDisconnect.disconnect();
     }
   }
 
@@ -455,6 +494,28 @@ export default class RaftConnector {
   }
 
   // Mark: Streaming --------------------------------------------------------------------------------
+
+  /**
+   * streamData - stream arbitrary data to a named firmware endpoint using the RT_STREAM protocol.
+   * @param streamContents data to stream
+   * @param fileName logical filename sent in ufStart (e.g. "pattern.thr")
+   * @param targetEndpoint REST API endpoint name on the firmware (e.g. "streampattern")
+   * @param progressCallback optional (sent, total, progress) callback
+   * @returns Promise<boolean> true on success
+   */
+  async streamData(
+    streamContents: Uint8Array,
+    fileName: string,
+    targetEndpoint: string,
+    progressCallback?: RaftStreamDataProgressCBType,
+  ): Promise<boolean> {
+    if (this._raftStreamHandler && this.isConnected()) {
+      return this._raftStreamHandler.streamData(
+        streamContents, fileName, targetEndpoint, progressCallback,
+      );
+    }
+    return false;
+  }
 
   /**
    * streamAudio - stream audio

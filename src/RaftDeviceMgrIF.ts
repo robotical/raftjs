@@ -7,14 +7,16 @@
 //
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-import { DeviceTypeAction } from "./RaftDeviceInfo";
-import { DeviceAttributeState, DevicesState, DeviceState } from "./RaftDeviceStates";
+import { DeviceTypeAction, SampleRateResult } from "./RaftDeviceInfo";
+import { DeviceAttributeState, DevicesState, DeviceState, DeviceStats } from "./RaftDeviceStates";
 
 export default interface RaftDeviceMgrIF {
 
     // Get state of devices
     getDevicesState(): DevicesState;
     getDeviceState(deviceKey: string): DeviceState;
+    getDeviceStats(deviceKey: string): DeviceStats;
+    resetDeviceStats(deviceKey: string): void;
 
     // Settings
     setMaxDataPointsToStore(maxDataPointsToStore: number): void;
@@ -26,8 +28,17 @@ export default interface RaftDeviceMgrIF {
     removeNewAttributeCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void;
     addAttributeDataCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void;
     removeAttributeDataCallback(callback: (deviceKey: string, attrState: DeviceAttributeState) => void): void;
+    addDeviceRemovedCallback(callback: (deviceKey: string, state: DeviceState) => void): void;
+    removeDeviceRemovedCallback(callback: (deviceKey: string, state: DeviceState) => void): void;
 
     // Send action to device
     sendAction(deviceKey: string, action: DeviceTypeAction, data: number[]): void;
     sendCompoundAction(deviceKey: string, action: DeviceTypeAction, data: number[][]): void;
+
+    // Set sample rate with coordinated polling parameters
+    setSampleRate(deviceKey: string, sampleRateHz: number, options?: {
+        numSamples?: number;
+        intervalUs?: number;
+        maxNumSamples?: number;
+    }): Promise<SampleRateResult>;
 }

@@ -94,10 +94,19 @@ h1 {
     gap: 10px;
 }
 
+.connection-info {
+    flex: 0 0 auto;
+    max-width: 140px;
+}
+
+.connection-info .info-box {
+    padding: 8px 12px;
+}
+
 .connected-panel {
     display: flex;
     justify-content: flex-start;
-    gap: 20px;
+    gap: 10px;
     align-items: stretch;
     flex-direction: row;
     width: 100%;
@@ -335,6 +344,15 @@ h1 {
     /* Slightly lighter dark background for distinction */
 }
 
+.action-status {
+    margin-top: 6px;
+    padding: 4px 8px;
+    font-size: 0.85em;
+    color: #aef;
+    background: #335;
+    border-radius: 3px;
+}
+
 .device-line-chart {
     flex: 1 1 auto;
     min-width: 50%;
@@ -381,6 +399,168 @@ h1 {
     background-color: #555;
 }
 
+.menu-item-toggle {
+    padding: 6px 10px;
+}
+
+.menu-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.menu-toggle input {
+    margin: 0;
+}
+
+.device-stats-panel {
+    flex: 0 0 220px;
+    min-width: 220px;
+    padding: 10px;
+    border: 1px solid #666;
+    border-radius: 4px;
+    background: #444;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.device-stats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+}
+
+.device-stats-reset {
+    background: #555;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 0.8em;
+}
+
+.device-stats-reset:hover {
+    background: #666;
+}
+
+.device-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+
+.device-stats-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.device-stats-label {
+    color: #bbb;
+    font-size: 0.85em;
+}
+
+.device-stats-value {
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.poll-rate-dialog-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.poll-rate-dialog {
+    background: #333;
+    border: 1px solid #666;
+    border-radius: 6px;
+    padding: 18px 22px;
+    min-width: 240px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    color: #fff;
+}
+
+.poll-rate-dialog-title {
+    font-size: 1em;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.poll-rate-dialog-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.poll-rate-input {
+    flex: 1;
+    background: #222;
+    border: 1px solid #666;
+    border-radius: 4px;
+    color: #fff;
+    padding: 6px 8px;
+    font-size: 1em;
+    width: 100%;
+}
+
+.poll-rate-unit {
+    color: #aaa;
+    font-size: 0.9em;
+}
+
+.poll-rate-preview {
+    font-size: 0.8em;
+    color: #aaa;
+}
+
+.poll-rate-status {
+    font-size: 0.85em;
+    color: #f90;
+}
+
+.poll-rate-dialog-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.poll-rate-btn {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.poll-rate-btn-set {
+    background: #4a7;
+    color: #fff;
+}
+
+.poll-rate-btn-set:hover {
+    background: #5b8;
+}
+
+.poll-rate-btn-cancel {
+    background: #555;
+    color: #fff;
+}
+
+.poll-rate-btn-cancel:hover {
+    background: #666;
+}
+
 /* Adjust height for portrait orientation */
 @media (orientation: portrait) {
     .device-line-chart {
@@ -405,4 +585,589 @@ h1 {
         height: 20vh;
         /* Slightly reduce the height for very wide screens */
     }
+}
+
+/* Logging Panel */
+.logging-panel {
+    min-width: 220px;
+}
+
+.logging-status-active {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-weight: bold;
+    color: #4f4;
+}
+
+.logging-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #4f4;
+    animation: logging-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes logging-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+.logging-start-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+.logging-label-input {
+    padding: 8px 10px;
+    border: 1px solid #666;
+    border-radius: 4px;
+    background: #222;
+    color: #fff;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.logging-button-row {
+    display: flex;
+    gap: 8px;
+}
+
+.logging-simulate-button {
+    background-color: #555;
+}
+
+.logging-simulate-button:hover {
+    background-color: #666;
+}
+
+.logging-stop-button {
+    background-color: #c33;
+    margin-top: 10px;
+}
+
+.logging-stop-button:hover {
+    background-color: #e44;
+}
+
+.logging-error {
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: #533;
+    border-radius: 4px;
+    color: #faa;
+    font-size: 0.85em;
+}
+
+/* Log Config Panel */
+.log-config-panel {
+    min-width: 280px;
+    max-width: 400px;
+    align-items: stretch;
+}
+
+.log-config-empty {
+    color: #888;
+    font-style: italic;
+    margin: 10px 0;
+}
+
+.log-config-select-buttons {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.log-config-select-btn {
+    padding: 3px 12px;
+    border: 1px solid #666;
+    border-radius: 3px;
+    background: #333;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 0.8em;
+}
+
+.log-config-select-btn:hover {
+    background: #444;
+}
+
+.log-config-device-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.log-config-device {
+    border: 1px solid #555;
+    border-radius: 6px;
+    padding: 8px 10px;
+    background: #1e1e1e;
+}
+
+.log-config-device-disabled {
+    opacity: 0.5;
+}
+
+.log-config-device-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.log-config-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.log-config-checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #4a9eff;
+}
+
+.log-config-device-name {
+    font-weight: 500;
+    font-size: 0.9em;
+}
+
+.log-config-device-addr {
+    font-size: 0.75em;
+    color: #888;
+    white-space: nowrap;
+}
+
+.log-config-rate-control {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px solid #333;
+}
+
+.log-config-rate-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.log-config-rate-label {
+    font-size: 0.8em;
+    color: #aaa;
+    white-space: nowrap;
+}
+
+.log-config-rate-preset {
+    padding: 3px 6px;
+    border: 1px solid #555;
+    border-radius: 3px;
+    background: #222;
+    color: #ddd;
+    font-size: 0.8em;
+    cursor: pointer;
+    flex: 1;
+}
+
+.log-config-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0;
+}
+
+.log-config-slider-label {
+    font-size: 0.7em;
+    color: #777;
+    white-space: nowrap;
+}
+
+.log-config-slider {
+    flex: 1;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #444;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+}
+
+.log-config-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #4a9eff;
+    cursor: pointer;
+}
+
+.log-config-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #4a9eff;
+    cursor: pointer;
+    border: none;
+}
+
+.log-config-rate-display {
+    font-size: 0.8em;
+    color: #8cf;
+    text-align: center;
+    margin-top: 2px;
+}
+
+.log-config-poll-rate {
+    color: #888;
+}
+
+/* Format Selection and Attribute Controls */
+.log-config-format-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #333;
+}
+
+.log-config-csv-header-label {
+    font-size: 0.85em;
+    color: #ccc;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    cursor: pointer;
+}
+
+.log-config-csv-header-label input[type="checkbox"] {
+    margin: 0;
+}
+
+.log-config-mode-select {
+    background: #1a1a2e;
+    color: #e0e0e0;
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 0.85em;
+}
+
+.log-config-attrs {
+    margin-top: 4px;
+}
+
+.log-config-attrs-label {
+    font-size: 0.8em;
+    color: #8cf;
+    margin-bottom: 2px;
+}
+
+.log-config-attrs-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 10px;
+}
+
+.log-config-attr-checkbox {
+    font-size: 0.8em;
+    color: #ccc;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+}
+
+.log-config-attr-checkbox input[type="checkbox"] {
+    margin: 0;
+}
+
+/* Duration Controls and Estimates */
+.log-config-duration-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.log-config-duration-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+}
+
+.log-config-duration-display {
+    font-size: 0.85em;
+    color: #8cf;
+    margin-bottom: 6px;
+    text-align: center;
+}
+
+.log-config-estimates {
+    font-size: 0.8em;
+    color: #aaa;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #333;
+}
+
+.log-config-max-duration {
+    color: #888;
+}
+
+/* Device Summary & Edit Button */
+.log-config-devices-summary {
+    border-top: 1px solid #333;
+    padding-top: 8px;
+}
+
+.log-config-summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.log-config-edit-btn {
+    padding: 3px 12px;
+    border: 1px solid #666;
+    border-radius: 3px;
+    background: #333;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 0.8em;
+}
+
+.log-config-edit-btn:hover {
+    background: #444;
+}
+
+.log-config-edit-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.log-config-summary-text {
+    font-size: 0.8em;
+    color: #aaa;
+    line-height: 1.5;
+}
+
+/* Device Select Dialog */
+.dev-select-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dev-select-dialog {
+    background: #2a2a2a;
+    border: 1px solid #666;
+    border-radius: 8px;
+    padding: 18px 22px;
+    min-width: 320px;
+    max-width: 480px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    color: #fff;
+}
+
+.dev-select-title {
+    margin: 0 0 4px 0;
+    font-size: 1.1em;
+}
+
+.dev-select-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    max-height: 60vh;
+    padding-right: 4px;
+}
+
+.dev-select-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px solid #444;
+}
+
+.dev-select-btn {
+    padding: 6px 18px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.dev-select-btn-cancel {
+    background: #555;
+    color: #ddd;
+}
+
+.dev-select-btn-cancel:hover {
+    background: #666;
+}
+
+.dev-select-btn-save {
+    background: #4a7;
+    color: #fff;
+}
+
+.dev-select-btn-save:hover {
+    background: #5b8;
+}
+
+/* Log Files Panel */
+.log-files-panel {
+    min-width: 220px;
+}
+
+.log-files-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.log-files-header h3 {
+    margin: 0;
+    flex: 1;
+}
+
+.log-files-refresh-button {
+    background: #555;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 1.2em;
+    line-height: 1;
+}
+
+.log-files-refresh-button:hover {
+    background: #666;
+}
+
+.log-files-disk-info {
+    font-size: 0.8em;
+    color: #aaa;
+    margin-top: 4px;
+}
+
+.log-files-loading,
+.log-files-empty {
+    color: #888;
+    font-size: 0.9em;
+    margin-top: 10px;
+}
+
+.log-files-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 10px;
+    width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.log-file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    background: #383838;
+    border-radius: 4px;
+    gap: 8px;
+}
+
+.log-file-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.log-file-name {
+    font-size: 0.85em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.log-file-size {
+    font-size: 0.75em;
+    color: #888;
+}
+
+.log-file-download-button {
+    background: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 0.9em;
+    min-width: 36px;
+    text-align: center;
+}
+
+.log-file-download-button:hover {
+    background: #0056b3;
+}
+
+.log-file-download-button:disabled {
+    background: #444;
+    cursor: not-allowed;
+}
+
+.log-file-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.log-file-delete-button {
+    background: #dc3545;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 0.85em;
+    min-width: 32px;
+    text-align: center;
+}
+
+.log-file-delete-button:hover {
+    background: #a71d2a;
+}
+
+.log-file-delete-button:disabled {
+    background: #444;
+    cursor: not-allowed;
 }

@@ -14,10 +14,14 @@ export function deviceAttrGetLatestFormatted(attrState: DeviceAttributeState): s
     if (attrState.values.length === 0) {
         return 'N/A';
     }
-    if (attrState.format.length === 0) {
-        return attrState.values[attrState.values.length - 1].toString();
-    }
     const value = attrState.values[attrState.values.length - 1];
+    // String values are returned directly
+    if (typeof value === 'string') {
+        return value;
+    }
+    if (attrState.format.length === 0) {
+        return value.toString();
+    }
     let format = attrState.format;
     if (format.startsWith("%")) {
         format = format.slice(1);
@@ -52,7 +56,7 @@ export interface DeviceAttributeState {
     newAttribute: boolean;
     newData: boolean;
     numNewValues: number;
-    values: number[];
+    values: (number | string)[];
     units: string;
     range: number[];
     format: string;
@@ -68,15 +72,37 @@ export interface DeviceTimeline {
     timestampsUs: number[];
     lastReportTimestampUs: number;
     reportTimestampOffsetUs: number;
+    totalSamplesAdded: number;
+    // Piecewise EMA timestamp reconstruction state
+    emaLastSampleTimeUs: number;
+    emaIntervalUs: number;
+    emaPrevPollTimeUs: number;
+    emaCalibrated: boolean;
+    emaCalibrationPolls: number;
 }
-    
+
+export interface DeviceStats {
+    totalSamples: number;
+    windowMs: number;
+    windowSamples: number;
+    sampleRateHz: number;
+    lastSampleTimeMs: number | null;
+    lastUpdateTimeMs: number | null;
+}
+
+export enum DeviceOnlineState {
+    Offline = 0,
+    Online = 1,
+    PendingDeletion = 2,
+}
+
 export interface DeviceState {
     deviceTypeInfo: DeviceTypeInfo | undefined;
     deviceTimeline: DeviceTimeline;
     deviceAttributes: DeviceAttributesState;
     deviceIsNew: boolean;
     stateChanged: boolean;
-    isOnline: boolean;
+    onlineState: DeviceOnlineState;
     deviceAddress: string;
     deviceType: string;
     busName: string;
@@ -86,7 +112,22 @@ export class DevicesState {
     [deviceKey: string]: DeviceState;
 }
 
-// Add the getDeviceKey method to generate a composite key
-export function getDeviceKey(busName: string, devAddr: string, devType: string): string {
-    return `${busName}_${devAddr}_${devType}`;
+// Format a numeric device address as canonical hex string:
+// lowercase, no "0x" prefix, no leading zeros
+export function formatDeviceAddrHex(addr: number): string {
+    return addr.toString(16);
+}
+
+// Generate a composite device key from bus number and hex address
+export function getDeviceKey(busNumberAsString: string, devAddrHexStr: string): string {
+    return `${busNumberAsString}_${devAddrHexStr}`;
+}
+
+// Parse a device key into its bus and address components
+export function parseDeviceKey(deviceKey: string): { bus: string; addr: string } {
+    const sep = deviceKey.indexOf('_');
+    if (sep < 0) {
+        return { bus: deviceKey, addr: '' };
+    }
+    return { bus: deviceKey.substring(0, sep), addr: deviceKey.substring(sep + 1) };
 }

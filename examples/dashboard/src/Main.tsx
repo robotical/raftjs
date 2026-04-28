@@ -11,6 +11,10 @@ import {
 import StatusPanel from './StatusPanel';
 import DevicesPanel from './DevicesPanel';
 import CommandPanel from './CommandPanel';
+import LoggingPanel from './LoggingPanel';
+import LogFilesPanel from './LogFilesPanel';
+import LogConfigPanel, { LogConfig } from './LogConfigPanel';
+
 import LatencyTestPanel from './LatencyTestPanel';
 import SettingsManager from './SettingsManager';
 
@@ -34,6 +38,9 @@ export default function Main() {
   const [ipAddress, setIpAddress] = useState<string>(
     localStorage.getItem('lastIpAddress') || ''
   );
+  const [fileRefreshTrigger, setFileRefreshTrigger] = useState(0);
+  const [downloadActive, setDownloadActive] = useState(false);
+  const [logConfig, setLogConfig] = useState<LogConfig | null>(null);
 
   const [serialNo, setSerialNo] = useState<string>('');
 
@@ -148,10 +155,10 @@ export default function Main() {
             {connectionStatus === RaftConnEvent.CONN_CONNECTED ? (
               <>
                 <div className="connected-panel">
-                  <div className="info-boxes">
+                  <div className="info-boxes connection-info">
                     <div className="info-box">
                       <div className="conn-indication">
-                        <h3>Connected</h3>
+                        <h3>Connected via {connManager.getConnector().getConnMethod() || 'Unknown'}</h3>
                       </div>
                       <div>
                         <button
@@ -169,6 +176,9 @@ export default function Main() {
                   <StatusPanel />
                   {latencyTestEnabled && <LatencyTestPanel />}
                   <CommandPanel />
+                  <LogConfigPanel onConfigChanged={setLogConfig} disabled={false} />
+                  <LoggingPanel onLogStopped={() => setFileRefreshTrigger(n => n + 1)} pausePolling={downloadActive} logConfig={logConfig} />
+                  <LogFilesPanel refreshTrigger={fileRefreshTrigger} onDownloadActiveChange={setDownloadActive} />
                 </div>
                 <DevicesPanel />
               </>

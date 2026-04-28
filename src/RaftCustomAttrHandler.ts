@@ -8,6 +8,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 import { CustomFunctionDefinition, DeviceTypePollRespMetadata } from "./RaftDeviceInfo";
+import { transpilePseudocodeToJs } from "./PseudocodeTranspiler";
 
 type CustomAttrJsFn = (
     buf: Uint8Array,
@@ -22,7 +23,7 @@ type CustomAttrJsFn = (
 export default class CustomAttrHandler {
 
     private _jsFunctionCache = new Map<string, CustomAttrJsFn>();
-    
+
     public handleAttr(pollRespMetadata: DeviceTypePollRespMetadata, msgBuffer: Uint8Array, msgBufIdx: number): number[][] {
 
         // Number of bytes in each message
@@ -45,59 +46,47 @@ export default class CustomAttrHandler {
             return attrValueVecs;
         }
 
-        // Provide the message buffer sliced to the data portion
-        const buf = msgBuffer.slice(msgBufIdx);
-        if (buf.length < numMsgBytes) {
+        // Provide this poll block to the custom handler. Use the smaller of
+        // pollRespMetadata.b and the bytes actually available — variable-length
+        // samples may be shorter than b, and the last sample in a frame may not
+        // have b bytes remaining in the buffer.
+        const availableBytes = Math.min(numMsgBytes, msgBuffer.length - msgBufIdx);
+        if (availableBytes <= 0) {
             return [];
         }
+        const buf = msgBuffer.slice(msgBufIdx, msgBufIdx + availableBytes);
 
-        // Execute supplied JS implementation if provided
-        if (customFnDef.j && customFnDef.j.trim().length > 0) {
-            const jsFn = this.getOrCompileJsFunction(customFnDef);
-            if (!jsFn) {
-                return attrValueVecs;
-            }
-            try {
-                jsFn(buf, attrValues, attrValueVecs, pollRespMetadata, msgBuffer, msgBufIdx, numMsgBytes);
-            } catch (err) {
-                console.error(`CustomAttrHandler JS function ${customFnDef.n} execution failed`, err);
-            }
+        const fn = this.getOrCompileFunction(customFnDef);
+        if (!fn) {
             return attrValueVecs;
         }
 
-        // Custom code for each device type handled natively
-        if (customFnDef.n === "max30101_fifo") {
-            // Generated code ...
-            const N = (buf[0] + 32 - buf[2]) % 32;
-            let k = 3;
-            let i = 0;
-            while (i < N) {
-                attrValues["Red"].push(0);
-                attrValues["Red"][attrValues["Red"].length - 1] = (buf[k] << 16) | (buf[k + 1] << 8) | buf[k + 2];
-                attrValues["IR"].push(0);
-                attrValues["IR"][attrValues["IR"].length - 1] = (buf[k + 3] << 16) | (buf[k + 4] << 8) | buf[k + 5];
-                k += 6;
-                i++;
-            }
-        } else if (customFnDef.n === "gravity_o2_calc") {
-            const key = 20.9 / 120.0;
-            const val = key * (buf[0] + buf[1] / 10.0 + buf[2] / 100.0);
-            attrValues["oxygen"].push(val);
+        try {
+            fn(buf, attrValues, attrValueVecs, pollRespMetadata, msgBuffer, msgBufIdx, numMsgBytes);
+        } catch (err) {
+            console.error(`CustomAttrHandler function ${customFnDef.n} execution failed`, err);
         }
         return attrValueVecs;
     }
 
-    private getOrCompileJsFunction(customFnDef: CustomFunctionDefinition): CustomAttrJsFn | null {
-        if (!customFnDef.j) {
+    private getOrCompileFunction(customFnDef: CustomFunctionDefinition): CustomAttrJsFn | null {
+        // Prefer explicit JS if provided, otherwise transpile from pseudocode
+        let jsSource = customFnDef.j?.trim();
+        if (!jsSource && customFnDef.c) {
+            jsSource = transpilePseudocodeToJs(customFnDef.c);
+        }
+        if (!jsSource) {
             return null;
         }
-        const cacheKey = `${customFnDef.n}::${customFnDef.j}`;
-        const cachedFn = this._jsFunctionCache.get(cacheKey);
-        if (cachedFn) {
-            return cachedFn;
+
+        const cacheKey = `${customFnDef.n}::${jsSource}`;
+        const cached = this._jsFunctionCache.get(cacheKey);
+        if (cached) {
+            return cached;
         }
+
         try {
-            const compiledFn = new Function(
+            const fn = new Function(
                 "buf",
                 "attrValues",
                 "attrValueVecs",
@@ -105,12 +94,12 @@ export default class CustomAttrHandler {
                 "msgBuffer",
                 "msgBufIdx",
                 "numMsgBytes",
-                customFnDef.j
+                jsSource
             ) as CustomAttrJsFn;
-            this._jsFunctionCache.set(cacheKey, compiledFn);
-            return compiledFn;
+            this._jsFunctionCache.set(cacheKey, fn);
+            return fn;
         } catch (err) {
-            console.error(`CustomAttrHandler failed to compile JS function ${customFnDef.n}`, err);
+            console.error(`CustomAttrHandler failed to compile function ${customFnDef.n}`, err);
             return null;
         }
     }

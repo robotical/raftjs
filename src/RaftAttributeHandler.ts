@@ -20,7 +20,7 @@ export default class AttributeHandler {
     // Message timestamp size
     private POLL_RESULT_TIMESTAMP_SIZE = 2;
     private POLL_RESULT_WRAP_VALUE = this.POLL_RESULT_TIMESTAMP_SIZE === 2 ? 65536 : 4294967296;
-    private POLL_RESULT_RESOLUTION_US = 1000;
+    private POLL_RESULT_RESOLUTION_US = 100;
     
     public processMsgAttrGroup(msgBuffer: Uint8Array, msgBufIdx: number, deviceTimeline: DeviceTimeline, pollRespMetadata: DeviceTypePollRespMetadata, 
                         devAttrsState: DeviceAttributesState, maxDataPoints: number): number {
@@ -37,11 +37,38 @@ export default class AttributeHandler {
         const msgDataStartIdx = msgBufIdx;
 
         // New attribute values (in order as they appear in the attributes JSON)
-        let newAttrValues: number[][] = [];
+        let newAttrValues: (number | string)[][] = [];
         if ("c" in pollRespMetadata) {
 
             // Extract attribute values using custom handler
             newAttrValues = this._customAttrHandler.handleAttr(pollRespMetadata, msgBuffer, msgBufIdx);
+
+            // Apply per-attribute transforms that the custom handler doesn't handle
+            for (let attrIdx = 0; attrIdx < pollRespMetadata.a.length && attrIdx < newAttrValues.length; attrIdx++) {
+                const attrDef = pollRespMetadata.a[attrIdx];
+                if (newAttrValues[attrIdx].length === 0) continue;
+
+                // Sign-extend values for signed types — the pseudocode produces unsigned
+                // values from bitwise operations, but the attribute type declares signedness
+                if (attrDef.t && isAttrTypeSigned(attrDef.t)) {
+                    const byteWidth = structSizeOf(attrDef.t);
+                    const signBit = 1 << (byteWidth * 8 - 1);
+                    const range = signBit * 2;
+                    newAttrValues[attrIdx] = newAttrValues[attrIdx].map(v => {
+                        const n = v as number;
+                        return (n & signBit) ? n - range : n;
+                    });
+                }
+
+                if ("d" in attrDef && attrDef.d) {
+                    const divisor = attrDef.d as number;
+                    newAttrValues[attrIdx] = newAttrValues[attrIdx].map(v => (v as number) / divisor);
+                }
+                if ("a" in attrDef && attrDef.a !== undefined) {
+                    const addend = attrDef.a as number;
+                    newAttrValues[attrIdx] = newAttrValues[attrIdx].map(v => (v as number) + addend);
+                }
+            }
 
         } else {
 
@@ -129,13 +156,49 @@ export default class AttributeHandler {
             devAttrsState[attrDef.n].numNewValues = newAttrValues[attrIdx].length;
         }
 
-        // Handle the timestamps with increments if specified
+        // --- Piecewise EMA timestamp reconstruction ---
+        // Track the last assigned sample timestamp and step forward by emaIntervalUs
+        // per sample. No T0 recomputation — avoids amplified batch-boundary jitter.
         const timeIncUs: number = pollRespMetadata.us ? pollRespMetadata.us : 1000;
-        const timestampsUs = Array(numNewDataPoints).fill(0);
-        for (let i = 0; i < numNewDataPoints; i++) {
-            timestampsUs[i] =  timestampUs + i * timeIncUs;
+
+        if (!deviceTimeline.emaCalibrated) {
+            // Cold start: anchor so that sample 0 gets the poll timestamp
+            deviceTimeline.emaIntervalUs = timeIncUs;
+            deviceTimeline.emaLastSampleTimeUs = timestampUs - deviceTimeline.emaIntervalUs;
+            deviceTimeline.emaPrevPollTimeUs = timestampUs;
+            deviceTimeline.emaCalibrated = true;
+            deviceTimeline.emaCalibrationPolls = 1;
+        } else {
+            // EMA interval update from poll-to-poll gap
+            if (numNewDataPoints > 1) {
+                const instantIntervalUs = (timestampUs - deviceTimeline.emaPrevPollTimeUs) / numNewDataPoints;
+                const alpha = deviceTimeline.emaCalibrationPolls < 20 ? 0.3 : 0.05;
+                deviceTimeline.emaIntervalUs = alpha * instantIntervalUs
+                                              + (1.0 - alpha) * deviceTimeline.emaIntervalUs;
+            }
+            deviceTimeline.emaPrevPollTimeUs = timestampUs;
+            deviceTimeline.emaCalibrationPolls++;
         }
-        
+
+        // Assign timestamps: each sample steps forward by emaIntervalUs
+        const timestampsUs = Array(numNewDataPoints).fill(0);
+        const lastTimeUs = deviceTimeline.timestampsUs.length > 0 
+            ? deviceTimeline.timestampsUs[deviceTimeline.timestampsUs.length - 1] 
+            : -Infinity;
+        for (let i = 0; i < numNewDataPoints; i++) {
+            timestampsUs[i] = deviceTimeline.emaLastSampleTimeUs + (i + 1) * deviceTimeline.emaIntervalUs;
+            // Ensure monotonically increasing timestamps
+            if (i === 0 && timestampsUs[0] <= lastTimeUs) {
+                timestampsUs[0] = lastTimeUs + 1;
+            } else if (i > 0 && timestampsUs[i] <= timestampsUs[i - 1]) {
+                timestampsUs[i] = timestampsUs[i - 1] + 1;
+            }
+        }
+        // Advance the piecewise model cursor past all samples in this batch
+        if (deviceTimeline.emaCalibrated && numNewDataPoints > 0) {
+            deviceTimeline.emaLastSampleTimeUs += numNewDataPoints * deviceTimeline.emaIntervalUs;
+        }
+
         // Check if timeline points need to be discarded
         const discardCount = Math.max(0, deviceTimeline.timestampsUs.length + timestampsUs.length - maxDataPoints);
         if (discardCount > 0) {
@@ -144,6 +207,7 @@ export default class AttributeHandler {
 
         // Add the new timestamps
         deviceTimeline.timestampsUs.push(...timestampsUs);
+        deviceTimeline.totalSamplesAdded += numNewDataPoints;
 
         // Validate attributes based on the vft field
         this.validateAttributes(pollRespMetadata, devAttrsState, numNewDataPoints);
@@ -201,7 +265,7 @@ export default class AttributeHandler {
         }
     }
 
-    private processMsgAttribute(attrDef: DeviceTypeAttribute, msgBuffer: Uint8Array, msgBufIdx: number, msgDataStartIdx: number): { values: number[], newMsgBufIdx: number} {
+    private processMsgAttribute(attrDef: DeviceTypeAttribute, msgBuffer: Uint8Array, msgBufIdx: number, msgDataStartIdx: number): { values: (number | string)[], newMsgBufIdx: number} {
 
         // Current field message string index
         let curFieldBufIdx = msgBufIdx;
@@ -253,10 +317,13 @@ export default class AttributeHandler {
 
         // Extract the value using python-struct
         const unpackValues = structUnpack(maskOnSignedValue ? attrTypesOnly.toUpperCase() : attrTypesOnly, attrBuf);
-        let attrValues = unpackValues as number[];
+        let attrValues = unpackValues as (number | string)[];
 
         // Get number of bytes consumed
         const numBytesConsumed = structSizeOf(attrTypesOnly);
+
+        // Check if any values are strings (from 's' format) — skip numeric transforms for those
+        const hasStringValues = attrValues.some(v => typeof v === 'string');
 
         // // Check if sign extendable mask specified on signed value
         // if (mmSpecifiedOnSignedValue) {
@@ -270,57 +337,57 @@ export default class AttributeHandler {
         // }
 
         // Check for XOR mask
-        if ("x" in attrDef) {
+        if (!hasStringValues && "x" in attrDef) {
             const mask = typeof attrDef.x === "string" ? parseInt(attrDef.x, 16) : attrDef.x as number;
-            attrValues = attrValues.map((value) => (value >>> 0) ^ mask);
+            attrValues = attrValues.map((value) => ((value as number) >>> 0) ^ mask);
         }
         
         // Check for AND mask
-        if ("m" in attrDef) {
+        if (!hasStringValues && "m" in attrDef) {
             const mask = typeof attrDef.m === "string" ? parseInt(attrDef.m, 16) : attrDef.m as number;
-            attrValues = attrValues.map((value) => (maskOnSignedValue ? this.signExtend(value, mask) : (value >>> 0) & mask));
+            attrValues = attrValues.map((value) => (maskOnSignedValue ? this.signExtend(value as number, mask) : ((value as number) >>> 0) & mask));
         }
 
         // Check for a sign-bit
-        if ("sb" in attrDef) {
+        if (!hasStringValues && "sb" in attrDef) {
             const signBitPos = attrDef.sb as number;
             const signBitMask = 1 << signBitPos;
             if ("ss" in attrDef) {
                 const signBitSubtract = attrDef.ss as number;
-                attrValues = attrValues.map((value) => (value & signBitMask) ? signBitSubtract - value : value);
+                attrValues = attrValues.map((value) => ((value as number) & signBitMask) ? signBitSubtract - (value as number) : value);
             } else {
-                attrValues = attrValues.map((value) => (value & signBitMask) ? value - (signBitMask << 1) : value);
+                attrValues = attrValues.map((value) => ((value as number) & signBitMask) ? (value as number) - (signBitMask << 1) : value);
             }
         }
 
         // Check for bit shift required
-        if ("s" in attrDef && attrDef.s) {
+        if (!hasStringValues && "s" in attrDef && attrDef.s) {
             const bitshift = attrDef.s as number;
             if (bitshift > 0) {
-                attrValues = attrValues.map((value) => (value >>> 0) >>> bitshift);
+                attrValues = attrValues.map((value) => ((value as number) >>> 0) >>> bitshift);
             } else if (bitshift < 0) {
-                attrValues = attrValues.map((value) => (value >>> 0) << -bitshift);
+                attrValues = attrValues.map((value) => ((value as number) >>> 0) << -bitshift);
             }
         }
 
         // Check for divisor
-        if ("d" in attrDef && attrDef.d) {
+        if (!hasStringValues && "d" in attrDef && attrDef.d) {
             const divisor = attrDef.d as number;
-            attrValues = attrValues.map((value) => (value) / divisor);
+            attrValues = attrValues.map((value) => (value as number) / divisor);
         }
 
         // Check for value to add
-        if ("a" in attrDef && attrDef.a !== undefined) {
+        if (!hasStringValues && "a" in attrDef && attrDef.a !== undefined) {
             const addValue = attrDef.a as number;
-            attrValues = attrValues.map((value) => (value) + addValue);
+            attrValues = attrValues.map((value) => (value as number) + addValue);
         }
 
         // Apply lookup table if defined
-        if ("lut" in attrDef && attrDef.lut !== undefined) {
+        if (!hasStringValues && "lut" in attrDef && attrDef.lut !== undefined) {
             attrValues = attrValues.map((value): number => {
                 // Skip NaN values
-                if (isNaN(value)) {
-                    return value;
+                if (isNaN(value as number)) {
+                    return value as number;
                 }
 
                 // Search through the lookup table rows for a match
@@ -334,7 +401,7 @@ export default class AttributeHandler {
                     }
                     
                     // Parse the range string
-                    if (this.isValueInRangeString(value, row.r)) {
+                    if (this.isValueInRangeString(value as number, row.r)) {
                         return row.v;
                     }
                 }
@@ -345,7 +412,7 @@ export default class AttributeHandler {
                 }
                 
                 // Otherwise keep the original value
-                return value;
+                return value as number;
             });
         }
 
@@ -394,7 +461,7 @@ export default class AttributeHandler {
         }
 
         // Check if time is before lastReportTimeMs by more than 100ms - in which case a wrap around occurred to add on the max value
-        if (timestampUs + 100000 < timestampWrapHandler.lastReportTimestampUs ) {
+        if (timestampUs + 10000 < timestampWrapHandler.lastReportTimestampUs ) {
             timestampWrapHandler.reportTimestampOffsetUs += this.POLL_RESULT_WRAP_VALUE * this.POLL_RESULT_RESOLUTION_US;
         }
         timestampWrapHandler.lastReportTimestampUs = timestampUs;
