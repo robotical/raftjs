@@ -21,10 +21,10 @@ export default class AttributeHandler {
     private POLL_RESULT_TIMESTAMP_SIZE = 2;
     private POLL_RESULT_WRAP_VALUE = this.POLL_RESULT_TIMESTAMP_SIZE === 2 ? 65536 : 4294967296;
     private POLL_RESULT_RESOLUTION_US = 100;
-    
-    public processMsgAttrGroup(msgBuffer: Uint8Array, msgBufIdx: number, deviceTimeline: DeviceTimeline, pollRespMetadata: DeviceTypePollRespMetadata, 
+
+    public processMsgAttrGroup(msgBuffer: Uint8Array, msgBufIdx: number, deviceTimeline: DeviceTimeline, pollRespMetadata: DeviceTypePollRespMetadata,
                         devAttrsState: DeviceAttributesState, maxDataPoints: number): number {
-        
+
         // console.log(`processMsgAttrGroup msg ${msgHexStr} timestamp ${timestamp} origTimestamp ${origTimestamp} msgBufIdx ${msgBufIdx}`)
 
         // Extract msg timestamp
@@ -97,7 +97,7 @@ export default class AttributeHandler {
                 newAttrValues.push(values);
             }
         }
-        
+
         // Number of bytes in group
         let pollRespSizeBytes = msgBufIdx - msgDataStartIdx;
         if (pollRespSizeBytes < pollRespMetadata.b) {
@@ -182,8 +182,8 @@ export default class AttributeHandler {
 
         // Assign timestamps: each sample steps forward by emaIntervalUs
         const timestampsUs = Array(numNewDataPoints).fill(0);
-        const lastTimeUs = deviceTimeline.timestampsUs.length > 0 
-            ? deviceTimeline.timestampsUs[deviceTimeline.timestampsUs.length - 1] 
+        const lastTimeUs = deviceTimeline.timestampsUs.length > 0
+            ? deviceTimeline.timestampsUs[deviceTimeline.timestampsUs.length - 1]
             : -Infinity;
         for (let i = 0; i < numNewDataPoints; i++) {
             timestampsUs[i] = deviceTimeline.emaLastSampleTimeUs + (i + 1) * deviceTimeline.emaIntervalUs;
@@ -220,7 +220,7 @@ export default class AttributeHandler {
         // Iterate through all attributes to find those with a vft field
         for (let attrIdx = 0; attrIdx < pollRespMetadata.a.length; attrIdx++) {
             const attrDef: DeviceTypeAttribute = pollRespMetadata.a[attrIdx];
-            
+
             // Check if this attribute has a vft field
             if (!("vft" in attrDef) || !attrDef.vft) {
                 continue;
@@ -247,7 +247,7 @@ export default class AttributeHandler {
             // Get the most recent values from both attributes
             const numValues = currentAttr.values.length;
             const startIdx = numValues - numNewDataPoints;
-            
+
             // Process each of the new values
             for (let i = 0; i < numNewDataPoints; i++) {
                 const valueIdx = startIdx + i;
@@ -278,10 +278,10 @@ export default class AttributeHandler {
                 // Create a new buffer for non-contiguous data extraction
                 const elemSize = structSizeOf(attrDef.t);
                 const bytesForType = new Uint8Array(elemSize);
-                
+
                 // Zero out the buffer
                 bytesForType.fill(0);
-                
+
                 // Copy bytes from the specified positions
                 for (let i = 0; i < attrDef.at.length && i < elemSize; i++) {
                     const sourceIdx = msgDataStartIdx + attrDef.at[i];
@@ -289,7 +289,7 @@ export default class AttributeHandler {
                         bytesForType[i] = msgBuffer[sourceIdx];
                     }
                 }
-                
+
                 // Use this buffer for attribute extraction
                 msgBuffer = bytesForType;
                 curFieldBufIdx = 0;
@@ -311,7 +311,7 @@ export default class AttributeHandler {
 
         // Slice into buffer
         const attrBuf = msgBuffer.slice(curFieldBufIdx);
- 
+
         // Check if a mask is used and the value is signed
         const maskOnSignedValue = "m" in attrDef && isAttrTypeSigned(attrTypesOnly);
 
@@ -341,7 +341,7 @@ export default class AttributeHandler {
             const mask = typeof attrDef.x === "string" ? parseInt(attrDef.x, 16) : attrDef.x as number;
             attrValues = attrValues.map((value) => ((value as number) >>> 0) ^ mask);
         }
-        
+
         // Check for AND mask
         if (!hasStringValues && "m" in attrDef) {
             const mask = typeof attrDef.m === "string" ? parseInt(attrDef.m, 16) : attrDef.m as number;
@@ -392,25 +392,25 @@ export default class AttributeHandler {
 
                 // Search through the lookup table rows for a match
                 let defaultValue: number | null = null;
-                
+
                 for (const row of attrDef.lut || []) {
                     // Empty string means default for unmatched values
                     if (row.r === "") {
                         defaultValue = row.v;
                         continue;
                     }
-                    
+
                     // Parse the range string
                     if (this.isValueInRangeString(value as number, row.r)) {
                         return row.v;
                     }
                 }
-                
+
                 // If no match found but we have a default, use it
                 if (defaultValue !== null) {
                     return defaultValue;
                 }
-                
+
                 // Otherwise keep the original value
                 return value as number;
             });
@@ -430,20 +430,20 @@ export default class AttributeHandler {
         // Return the value
         return { values: attrValues, newMsgBufIdx: msgBufIdx };
     }
-    
+
     private signExtend(value: number, mask: number): number {
         const signBitMask = (mask + 1) >> 1;
         const signBit = value & signBitMask;
-    
+
         if (signBit !== 0) {  // If sign bit is set
             const highBitsMask = ~mask & ~((mask + 1) >> 1);
             value |= highBitsMask;  // Apply the sign extension
         }
-    
+
         return value;
     }
 
-    private extractTimestampAndAdvanceIdx(msgBuffer: Uint8Array, msgBufIdx: number, timestampWrapHandler: DeviceTimeline): 
+    private extractTimestampAndAdvanceIdx(msgBuffer: Uint8Array, msgBufIdx: number, timestampWrapHandler: DeviceTimeline):
                     { newBufIdx: number, timestampUs: number } {
 
         // Check there are enough bytes for the timestamp
@@ -454,7 +454,7 @@ export default class AttributeHandler {
         // Use struct to extract the timestamp
         const tsBuffer = msgBuffer.slice(msgBufIdx, msgBufIdx + this.POLL_RESULT_TIMESTAMP_SIZE);
         let timestampUs: number;
-        if (this.POLL_RESULT_TIMESTAMP_SIZE === 2) { 
+        if (this.POLL_RESULT_TIMESTAMP_SIZE === 2) {
             timestampUs = structUnpack(">H", tsBuffer)[0] as number * this.POLL_RESULT_RESOLUTION_US;
         } else {
             timestampUs = structUnpack(">I", tsBuffer)[0] as number * this.POLL_RESULT_RESOLUTION_US;
@@ -480,37 +480,37 @@ export default class AttributeHandler {
     private isValueInRangeString(value: number, rangeStr: string): boolean {
         // Round to integer for comparison
         const roundedValue = Math.round(value);
-        
+
         // Split the range string by commas
         const parts = rangeStr.split(',');
-        
+
         for (const part of parts) {
             // Check if it's a range (contains a hyphen)
             if (part.includes('-')) {
                 const [startStr, endStr] = part.split('-');
-                
+
                 // Handle hex values
-                const start = startStr.toLowerCase().startsWith('0x') ? 
+                const start = startStr.toLowerCase().startsWith('0x') ?
                     parseInt(startStr, 16) : parseInt(startStr, 10);
-                const end = endStr.toLowerCase().startsWith('0x') ? 
+                const end = endStr.toLowerCase().startsWith('0x') ?
                     parseInt(endStr, 16) : parseInt(endStr, 10);
-                
+
                 if (!isNaN(start) && !isNaN(end) && roundedValue >= start && roundedValue <= end) {
                     return true;
                 }
-            } 
+            }
             // Check if it's a single value
             else {
                 // Handle hex values
-                const partValue = part.toLowerCase().startsWith('0x') ? 
+                const partValue = part.toLowerCase().startsWith('0x') ?
                     parseInt(part, 16) : parseInt(part, 10);
-                
+
                 if (!isNaN(partValue) && roundedValue === partValue) {
                     return true;
                 }
             }
         }
-        
+
         return false;
     }
 

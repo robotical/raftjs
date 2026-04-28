@@ -240,7 +240,7 @@ export default class RaftConnector {
       this._raftChannel = new RaftChannelWebSerial();
       this._channelConnMethod = 'WebSerial';
     } else if (method === 'Simulated') {
-      this._raftChannel = new RaftChannelSimulated(); 
+      this._raftChannel = new RaftChannelSimulated();
       this._channelConnMethod = 'Simulated';
     } else {
       RaftLog.warn('Unknown method: ' + method);
@@ -366,7 +366,7 @@ export default class RaftConnector {
       // Store reference to channel before async operations to avoid race condition
       const channelToDisconnect = this._raftChannel;
       this._raftChannel = null;
-      
+
       // Check if there is a RICREST command to send before disconnecting
       const ricRestCommand = channelToDisconnect.ricRestCmdBeforeDisconnect();
       if (ricRestCommand) {
@@ -595,7 +595,7 @@ export default class RaftConnector {
    */
   async checkConnPerformance(): Promise<number | undefined> {
 
-    // Sends a magic sequence of bytes followed by blocks of random data 
+    // Sends a magic sequence of bytes followed by blocks of random data
     // these will be ignored by the Raft library (as it recognises magic sequence)
     // and is used performance evaluation
     let prbsState = 1;
@@ -742,8 +742,8 @@ export default class RaftConnector {
 
   /**
    * onUpdateEvent - handle update event
-   * @param eventEnum 
-   * @param data 
+   * @param eventEnum
+   * @param data
    */
   _onUpdateEvent(eventEnum: RaftUpdateEvent, data: object | string | null | undefined = undefined): void {
     // Notify
