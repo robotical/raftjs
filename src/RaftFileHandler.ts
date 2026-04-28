@@ -78,7 +78,6 @@ export default class RaftFileHandler {
   private _fileRxLastAckTime = 0;
   private _fileRxLastBlockTime = 0;
   private _fileRxLastAckPos = 0;
-  private OVERALL_FILE_TRANSFER_TIMEOUT_MS = 100000;
   private FILE_RX_ACK_RESEND_TIMEOUT_MS = 1000;
 
   // RaftCommsStats
