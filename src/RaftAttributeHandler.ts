@@ -175,6 +175,11 @@ export default class AttributeHandler {
                 const alpha = deviceTimeline.emaCalibrationPolls < 20 ? 0.3 : 0.05;
                 deviceTimeline.emaIntervalUs = alpha * instantIntervalUs
                                               + (1.0 - alpha) * deviceTimeline.emaIntervalUs;
+            } else if (numNewDataPoints === 1) {
+                const instantIntervalUs = timestampUs - deviceTimeline.emaPrevPollTimeUs;
+                if (Number.isFinite(instantIntervalUs) && instantIntervalUs > 0) {
+                    deviceTimeline.emaIntervalUs = instantIntervalUs;
+                }
             }
             deviceTimeline.emaPrevPollTimeUs = timestampUs;
             deviceTimeline.emaCalibrationPolls++;
@@ -186,7 +191,9 @@ export default class AttributeHandler {
             ? deviceTimeline.timestampsUs[deviceTimeline.timestampsUs.length - 1]
             : -Infinity;
         for (let i = 0; i < numNewDataPoints; i++) {
-            timestampsUs[i] = deviceTimeline.emaLastSampleTimeUs + (i + 1) * deviceTimeline.emaIntervalUs;
+            timestampsUs[i] = numNewDataPoints === 1
+                ? timestampUs
+                : deviceTimeline.emaLastSampleTimeUs + (i + 1) * deviceTimeline.emaIntervalUs;
             // Ensure monotonically increasing timestamps
             if (i === 0 && timestampsUs[0] <= lastTimeUs) {
                 timestampsUs[0] = lastTimeUs + 1;
@@ -196,7 +203,7 @@ export default class AttributeHandler {
         }
         // Advance the piecewise model cursor past all samples in this batch
         if (deviceTimeline.emaCalibrated && numNewDataPoints > 0) {
-            deviceTimeline.emaLastSampleTimeUs += numNewDataPoints * deviceTimeline.emaIntervalUs;
+            deviceTimeline.emaLastSampleTimeUs = timestampsUs[timestampsUs.length - 1];
         }
 
         // Check if timeline points need to be discarded
