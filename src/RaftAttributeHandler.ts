@@ -23,12 +23,13 @@ export default class AttributeHandler {
     private POLL_RESULT_RESOLUTION_US = 100;
 
     public processMsgAttrGroup(msgBuffer: Uint8Array, msgBufIdx: number, deviceTimeline: DeviceTimeline, pollRespMetadata: DeviceTypePollRespMetadata,
-                        devAttrsState: DeviceAttributesState, maxDataPoints: number): number {
+                        devAttrsState: DeviceAttributesState, maxDataPoints: number, msgEndIdx = msgBuffer.length): number {
 
         // console.log(`processMsgAttrGroup msg ${msgHexStr} timestamp ${timestamp} origTimestamp ${origTimestamp} msgBufIdx ${msgBufIdx}`)
+        const boundedMsgEndIdx = Math.min(Math.max(msgEndIdx, msgBufIdx), msgBuffer.length);
 
         // Extract msg timestamp
-        const { newBufIdx, timestampUs } = this.extractTimestampAndAdvanceIdx(msgBuffer, msgBufIdx, deviceTimeline);
+        const { newBufIdx, timestampUs } = this.extractTimestampAndAdvanceIdx(msgBuffer, msgBufIdx, deviceTimeline, boundedMsgEndIdx);
         if (newBufIdx < 0)
             return -1;
         msgBufIdx = newBufIdx;
@@ -41,7 +42,7 @@ export default class AttributeHandler {
         if ("c" in pollRespMetadata) {
 
             // Extract attribute values using custom handler
-            newAttrValues = this._customAttrHandler.handleAttr(pollRespMetadata, msgBuffer, msgBufIdx);
+            newAttrValues = this._customAttrHandler.handleAttr(pollRespMetadata, msgBuffer, msgBufIdx, boundedMsgEndIdx);
 
             // Apply per-attribute transforms that the custom handler doesn't handle
             for (let attrIdx = 0; attrIdx < pollRespMetadata.a.length && attrIdx < newAttrValues.length; attrIdx++) {
@@ -88,10 +89,9 @@ export default class AttributeHandler {
                 // console.log(`RaftAttrHdlr.processMsgAttrGroup attr ${attrDef.n} msgBufIdx ${msgBufIdx} timestampUs ${timestampUs} attrDef ${JSON.stringify(attrDef)}`);
 
                 // Process the attribute
-                const { values, newMsgBufIdx } = this.processMsgAttribute(attrDef, msgBuffer, msgBufIdx, msgDataStartIdx);
+                const { values, newMsgBufIdx } = this.processMsgAttribute(attrDef, msgBuffer, msgBufIdx, msgDataStartIdx, boundedMsgEndIdx);
                 if (newMsgBufIdx < 0) {
-                    newAttrValues.push([]);
-                    continue;
+                    return -1;
                 }
                 msgBufIdx = newMsgBufIdx;
                 newAttrValues.push(values);
@@ -107,7 +107,7 @@ export default class AttributeHandler {
         // Check if any attributes were added (in addition to timestamp)
         if (newAttrValues.length === 0) {
             console.warn(`DeviceManager msg attrGroup ${JSON.stringify(pollRespMetadata)} newAttrValues ${newAttrValues} is empty`);
-            return msgDataStartIdx+pollRespSizeBytes;
+            return -1;
         }
 
         // All attributes must have the same number of new values
@@ -272,18 +272,21 @@ export default class AttributeHandler {
         }
     }
 
-    private processMsgAttribute(attrDef: DeviceTypeAttribute, msgBuffer: Uint8Array, msgBufIdx: number, msgDataStartIdx: number): { values: (number | string)[], newMsgBufIdx: number} {
+    private processMsgAttribute(attrDef: DeviceTypeAttribute, msgBuffer: Uint8Array, msgBufIdx: number, msgDataStartIdx: number, msgEndIdx: number): { values: (number | string)[], newMsgBufIdx: number} {
 
         // Current field message string index
         let curFieldBufIdx = msgBufIdx;
         let attrUsesAbsPos = false;
+        const boundedMsgEndIdx = Math.min(Math.max(msgEndIdx, msgDataStartIdx), msgBuffer.length);
+        const attrTypesOnly = attrDef.t;
+        const numBytesConsumed = structSizeOf(attrTypesOnly);
 
         // Check for "at" field which means absolute position in the buffer
         if (attrDef.at !== undefined) {
             // Handle both single value and array of byte positions
             if (Array.isArray(attrDef.at)) {
                 // Create a new buffer for non-contiguous data extraction
-                const elemSize = structSizeOf(attrDef.t);
+                const elemSize = numBytesConsumed;
                 const bytesForType = new Uint8Array(elemSize);
 
                 // Zero out the buffer
@@ -292,14 +295,16 @@ export default class AttributeHandler {
                 // Copy bytes from the specified positions
                 for (let i = 0; i < attrDef.at.length && i < elemSize; i++) {
                     const sourceIdx = msgDataStartIdx + attrDef.at[i];
-                    if (sourceIdx < msgBuffer.length) {
-                        bytesForType[i] = msgBuffer[sourceIdx];
+                    if (sourceIdx >= boundedMsgEndIdx) {
+                        return { values: [], newMsgBufIdx: -1 };
                     }
+                    bytesForType[i] = msgBuffer[sourceIdx];
                 }
 
                 // Use this buffer for attribute extraction
                 msgBuffer = bytesForType;
                 curFieldBufIdx = 0;
+                msgEndIdx = bytesForType.length;
             } else {
                 // Standard absolute position in the buffer
                 curFieldBufIdx = msgDataStartIdx + attrDef.at;
@@ -308,16 +313,15 @@ export default class AttributeHandler {
         }
 
         // Check if outside bounds of message
-        if (curFieldBufIdx >= msgBuffer.length) {
+        const attrEndIdx = curFieldBufIdx + numBytesConsumed;
+        const effectiveMsgEndIdx = Math.min(Math.max(msgEndIdx, curFieldBufIdx), msgBuffer.length);
+        if (curFieldBufIdx >= effectiveMsgEndIdx || attrEndIdx > effectiveMsgEndIdx) {
             // console.warn(`DeviceManager msg outside bounds msgBuffer ${msgBuffer} attrName ${attrDef.n}`);
             return { values: [], newMsgBufIdx: -1 };
         }
 
-        // Attribute type
-        const attrTypesOnly = attrDef.t;
-
         // Slice into buffer
-        const attrBuf = msgBuffer.slice(curFieldBufIdx);
+        const attrBuf = msgBuffer.slice(curFieldBufIdx, effectiveMsgEndIdx);
 
         // Check if a mask is used and the value is signed
         const maskOnSignedValue = "m" in attrDef && isAttrTypeSigned(attrTypesOnly);
@@ -325,9 +329,6 @@ export default class AttributeHandler {
         // Extract the value using python-struct
         const unpackValues = structUnpack(maskOnSignedValue ? attrTypesOnly.toUpperCase() : attrTypesOnly, attrBuf);
         let attrValues = unpackValues as (number | string)[];
-
-        // Get number of bytes consumed
-        const numBytesConsumed = structSizeOf(attrTypesOnly);
 
         // Check if any values are strings (from 's' format) — skip numeric transforms for those
         const hasStringValues = attrValues.some(v => typeof v === 'string');
@@ -450,11 +451,12 @@ export default class AttributeHandler {
         return value;
     }
 
-    private extractTimestampAndAdvanceIdx(msgBuffer: Uint8Array, msgBufIdx: number, timestampWrapHandler: DeviceTimeline):
+    private extractTimestampAndAdvanceIdx(msgBuffer: Uint8Array, msgBufIdx: number, timestampWrapHandler: DeviceTimeline, msgEndIdx = msgBuffer.length):
                     { newBufIdx: number, timestampUs: number } {
+        const boundedMsgEndIdx = Math.min(Math.max(msgEndIdx, msgBufIdx), msgBuffer.length);
 
         // Check there are enough bytes for the timestamp
-        if (msgBufIdx + this.POLL_RESULT_TIMESTAMP_SIZE > msgBuffer.length) {
+        if (msgBufIdx + this.POLL_RESULT_TIMESTAMP_SIZE > boundedMsgEndIdx) {
             return { newBufIdx: -1, timestampUs: 0 };
         }
 
