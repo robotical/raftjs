@@ -380,6 +380,23 @@ export default class RaftConnector {
     }
   }
 
+  disconnectForPageUnload(): void {
+    this._retryIfLostIsConnected = false;
+
+    if (!this._raftChannel) {
+      return;
+    }
+
+    const channelToDisconnect = this._raftChannel;
+    this._raftChannel = null;
+
+    try {
+      void channelToDisconnect.disconnect();
+    } catch (error) {
+      RaftLog.warn(`RaftConnector.disconnectForPageUnload failed ${error}`);
+    }
+  }
+
   // Mark: Tx Message handling -----------------------------------------------------------------------------------------
 
   /**
