@@ -11,6 +11,23 @@ import CustomAttrHandler from "./RaftCustomAttrHandler";
 import { DeviceTypeAttribute, DeviceTypePollRespMetadata, decodeAttrUnitsEncoding, isAttrTypeSigned } from "./RaftDeviceInfo";
 import { DeviceAttributesState, DeviceTimeline } from "./RaftDeviceStates";
 import { structSizeOf, structUnpack } from "./RaftStruct";
+import RaftUtils from "./RaftUtils";
+
+// Optional diagnostic context for attribute decoding. When provided, the
+// handler emits a detailed warning if an attribute would read past the
+// declared sample boundary or the end of the message buffer. This is used to
+// track down firmware/schema mismatches.
+export interface AttrDecodeDiagContext {
+    deviceKey?: string;
+    deviceType?: string;
+    debugMsgIndex?: number;
+    // Inclusive start (in msgBuffer) of the current sample's bytes (after the
+    // 1-byte sampleLen prefix). When provided together with sampleEndIdx, the
+    // handler will bound-check attribute reads against this range.
+    sampleStartIdx?: number;
+    // Exclusive end (in msgBuffer) of the current sample's bytes.
+    sampleEndIdx?: number;
+}
 
 export default class AttributeHandler {
 
@@ -23,7 +40,8 @@ export default class AttributeHandler {
     private POLL_RESULT_RESOLUTION_US = 100;
     
     public processMsgAttrGroup(msgBuffer: Uint8Array, msgBufIdx: number, deviceTimeline: DeviceTimeline, pollRespMetadata: DeviceTypePollRespMetadata, 
-                        devAttrsState: DeviceAttributesState, maxDataPoints: number): number {
+                        devAttrsState: DeviceAttributesState, maxDataPoints: number,
+                        diagCtx?: AttrDecodeDiagContext): number {
         
         // console.log(`processMsgAttrGroup msg ${msgHexStr} timestamp ${timestamp} origTimestamp ${origTimestamp} msgBufIdx ${msgBufIdx}`)
 
@@ -38,6 +56,11 @@ export default class AttributeHandler {
 
         // New attribute values (in order as they appear in the attributes JSON)
         let newAttrValues: (number | string)[][] = [];
+        // Tracks whether any individual attribute decode failed in the non-custom path.
+        // When true, the detailed per-attribute overrun warning has already been emitted
+        // by processMsgAttribute, so we suppress the redundant downstream length/empty
+        // warnings that would otherwise fire every poll.
+        let attrDecodeFailed = false;
         if ("c" in pollRespMetadata) {
 
             // Extract attribute values using custom handler
@@ -82,15 +105,17 @@ export default class AttributeHandler {
                 if (!("t" in attrDef)) {
                     console.warn(`DeviceManager msg unknown msgBuffer ${msgBuffer} tsUs ${timestampUs} attrDef ${JSON.stringify(attrDef)}`);
                     newAttrValues.push([]);
+                    attrDecodeFailed = true;
                     continue;
                 }
 
                 // console.log(`RaftAttrHdlr.processMsgAttrGroup attr ${attrDef.n} msgBufIdx ${msgBufIdx} timestampUs ${timestampUs} attrDef ${JSON.stringify(attrDef)}`);
 
                 // Process the attribute
-                const { values, newMsgBufIdx } = this.processMsgAttribute(attrDef, msgBuffer, msgBufIdx, msgDataStartIdx);
+                const { values, newMsgBufIdx } = this.processMsgAttribute(attrDef, msgBuffer, msgBufIdx, msgDataStartIdx, pollRespMetadata, diagCtx);
                 if (newMsgBufIdx < 0) {
                     newAttrValues.push([]);
+                    attrDecodeFailed = true;
                     continue;
                 }
                 msgBufIdx = newMsgBufIdx;
@@ -106,7 +131,9 @@ export default class AttributeHandler {
 
         // Check if any attributes were added (in addition to timestamp)
         if (newAttrValues.length === 0) {
-            console.warn(`DeviceManager msg attrGroup ${JSON.stringify(pollRespMetadata)} newAttrValues ${newAttrValues} is empty`);
+            if (!attrDecodeFailed) {
+                console.warn(`DeviceManager msg attrGroup ${JSON.stringify(pollRespMetadata)} newAttrValues is empty`);
+            }
             return msgDataStartIdx+pollRespSizeBytes;
         }
 
@@ -114,14 +141,18 @@ export default class AttributeHandler {
         const numNewDataPoints = newAttrValues[0].length;
         for (let i = 1; i < newAttrValues.length; i++) {
             if (newAttrValues[i].length !== numNewDataPoints) {
-                console.warn(`DeviceManager msg attrGroup ${pollRespMetadata} attrName ${pollRespMetadata.a[i].n} newAttrValues ${newAttrValues} do not have the same length`);
+                if (!attrDecodeFailed) {
+                    console.warn(`DeviceManager msg attrGroup ${JSON.stringify(pollRespMetadata)} attrName ${pollRespMetadata.a[i].n} newAttrValues lengths ${newAttrValues.map(v => v.length).join(",")} do not match`);
+                }
                 return msgDataStartIdx+pollRespSizeBytes;
             }
         }
 
         // All attributes in the schema should have values
         if (newAttrValues.length !== pollRespMetadata.a.length) {
-            console.warn(`DeviceManager msg attrGroup ${pollRespMetadata} newAttrValues ${newAttrValues} length does not match attrGroup.a length`);
+            if (!attrDecodeFailed) {
+                console.warn(`DeviceManager msg attrGroup ${JSON.stringify(pollRespMetadata)} newAttrValues length ${newAttrValues.length} does not match attrGroup.a length ${pollRespMetadata.a.length}`);
+            }
             return msgDataStartIdx+pollRespSizeBytes;
         }
 
@@ -265,7 +296,8 @@ export default class AttributeHandler {
         }
     }
 
-    private processMsgAttribute(attrDef: DeviceTypeAttribute, msgBuffer: Uint8Array, msgBufIdx: number, msgDataStartIdx: number): { values: (number | string)[], newMsgBufIdx: number} {
+    private processMsgAttribute(attrDef: DeviceTypeAttribute, msgBuffer: Uint8Array, msgBufIdx: number, msgDataStartIdx: number,
+                                pollRespMetadata?: DeviceTypePollRespMetadata, diagCtx?: AttrDecodeDiagContext): { values: (number | string)[], newMsgBufIdx: number} {
 
         // Current field message string index
         let curFieldBufIdx = msgBufIdx;
@@ -300,14 +332,25 @@ export default class AttributeHandler {
             attrUsesAbsPos = true;
         }
 
-        // Check if outside bounds of message
-        if (curFieldBufIdx >= msgBuffer.length) {
-            // console.warn(`DeviceManager msg outside bounds msgBuffer ${msgBuffer} attrName ${attrDef.n}`);
-            return { values: [], newMsgBufIdx: -1 };
-        }
-
         // Attribute type
         const attrTypesOnly = attrDef.t;
+
+        // Get number of bytes required to decode this attribute
+        const attrTypeSize = structSizeOf(attrTypesOnly);
+
+        // Bound-check: against the message buffer, and (when known) against the
+        // declared sample boundary. A failure here means the device's emitted
+        // bytes are shorter than the registered device-type schema expects, or
+        // the schema uses an absolute position (`at`) outside the sample.
+        const sampleEnd = diagCtx?.sampleEndIdx;
+        const overrunsBuffer = curFieldBufIdx < 0 || curFieldBufIdx + attrTypeSize > msgBuffer.length;
+        const overrunsSample = !attrUsesAbsPos && sampleEnd !== undefined && curFieldBufIdx + attrTypeSize > sampleEnd;
+        if (overrunsBuffer || overrunsSample) {
+            this.warnAttrOverrun(attrDef, msgBuffer, curFieldBufIdx, attrTypeSize, msgDataStartIdx,
+                                 attrUsesAbsPos, pollRespMetadata, diagCtx,
+                                 overrunsBuffer ? "msgBuffer" : "sample");
+            return { values: [], newMsgBufIdx: -1 };
+        }
 
         // Slice into buffer
         const attrBuf = msgBuffer.slice(curFieldBufIdx);
@@ -319,8 +362,8 @@ export default class AttributeHandler {
         const unpackValues = structUnpack(maskOnSignedValue ? attrTypesOnly.toUpperCase() : attrTypesOnly, attrBuf);
         let attrValues = unpackValues as (number | string)[];
 
-        // Get number of bytes consumed
-        const numBytesConsumed = structSizeOf(attrTypesOnly);
+        // Number of bytes consumed equals the type size computed above
+        const numBytesConsumed = attrTypeSize;
 
         // Check if any values are strings (from 's' format) — skip numeric transforms for those
         const hasStringValues = attrValues.some(v => typeof v === 'string');
@@ -431,6 +474,40 @@ export default class AttributeHandler {
         return { values: attrValues, newMsgBufIdx: msgBufIdx };
     }
     
+    // One-shot detailed warning when an attribute decode would overrun the
+    // sample/message bounds. Includes the exact bytes and schema so the
+    // firmware vs. registered device-type schema can be reconciled.
+    private _overrunWarnSeen: Set<string> = new Set();
+    private warnAttrOverrun(attrDef: DeviceTypeAttribute, msgBuffer: Uint8Array, curFieldBufIdx: number,
+                            attrTypeSize: number, msgDataStartIdx: number, attrUsesAbsPos: boolean,
+                            pollRespMetadata: DeviceTypePollRespMetadata | undefined,
+                            diagCtx: AttrDecodeDiagContext | undefined, overrunOf: "msgBuffer" | "sample"): void {
+        const sampleStart = diagCtx?.sampleStartIdx ?? msgDataStartIdx;
+        const sampleEnd = diagCtx?.sampleEndIdx;
+        const dedupeKey = `${diagCtx?.deviceKey ?? "?"}|${diagCtx?.deviceType ?? "?"}|${attrDef.n}|${attrDef.t}|${attrUsesAbsPos ? attrDef.at : "rel"}`;
+        if (this._overrunWarnSeen.has(dedupeKey)) {
+            return;
+        }
+        this._overrunWarnSeen.add(dedupeKey);
+        const sampleHex = sampleEnd !== undefined
+            ? RaftUtils.bufferToHex(msgBuffer.slice(sampleStart, sampleEnd))
+            : "<unknown sample bounds>";
+        const availableInSample = sampleEnd !== undefined ? Math.max(0, sampleEnd - curFieldBufIdx) : -1;
+        const availableInBuffer = Math.max(0, msgBuffer.length - curFieldBufIdx);
+        console.warn(
+            `AttributeHandler decode overrun (${overrunOf}): ` +
+            `deviceKey=${diagCtx?.deviceKey ?? "?"} deviceType=${diagCtx?.deviceType ?? "?"} ` +
+            `debugMsgIndex=${diagCtx?.debugMsgIndex ?? "?"} attr.n=${attrDef.n} attr.t=${attrDef.t} ` +
+            `attrTypeSize=${attrTypeSize} attrUsesAbsPos=${attrUsesAbsPos} attr.at=${JSON.stringify(attrDef.at)} ` +
+            `curFieldBufIdx=${curFieldBufIdx} msgBuffer.length=${msgBuffer.length} ` +
+            `sampleStartIdx=${sampleStart} sampleEndIdx=${sampleEnd ?? "?"} ` +
+            `availableInSample=${availableInSample} availableInBuffer=${availableInBuffer} ` +
+            `sampleHex=${sampleHex} ` +
+            `pollRespMetadata.b=${pollRespMetadata?.b} ` +
+            `schema=${JSON.stringify(pollRespMetadata?.a)}`
+        );
+    }
+
     private signExtend(value: number, mask: number): number {
         const signBitMask = (mask + 1) >> 1;
         const signBit = value & signBitMask;
