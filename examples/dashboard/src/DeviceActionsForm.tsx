@@ -53,6 +53,9 @@ const DeviceActionsForm: React.FC<DeviceActionsTableProps> = ({ deviceKey }: Dev
         // Wait a little while inline for the device to be ready
         setTimeout(async () => {
             const deviceState = deviceManager.getDeviceState(deviceKey);
+            if (!deviceState) {
+                return;
+            }
             const { deviceTypeInfo } = deviceState;
             const actions: DeviceTypeAction[] = deviceTypeInfo?.actions || [];
             setDeviceActions(actions);
