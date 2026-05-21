@@ -11,7 +11,7 @@
 import { createBLEChannel } from './RaftChannelBLEFactory';
 const raftChannel = createBLEChannel();
 export { raftChannel as RaftChannelBLE };
-
+ 
 export { default as RaftCommsStats } from './RaftCommsStats';
 export { default as RaftConnector } from './RaftConnector';
 export { default as RaftChannel } from './RaftChannel';
