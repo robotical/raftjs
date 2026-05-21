@@ -403,8 +403,14 @@ export class DeviceManager implements RaftDeviceMgrIF{
             // Check if a device state already exists
             if (!(deviceKey in this._devicesState) || (this._devicesState[deviceKey].deviceTypeInfo === undefined)) {
 
-                // Get the device type info
-                const deviceTypeInfo = resolvedDeviceTypeInfo ?? await this.getDeviceTypeInfo(busNum.toString(), devTypeIdx.toString());
+                // Merge rationale: upstream's deviceid lookup carries
+                // per-instance name/role fields, while Robotical's simulator
+                // and older firmware still expose bus/type lookup. Try the
+                // richer endpoint first and fall back to the type record that
+                // was already loaded for payload-format detection.
+                const deviceTypeInfo = await this.getDeviceTypeInfo(deviceKey)
+                    ?? resolvedDeviceTypeInfo
+                    ?? await this.getDeviceTypeInfo(busNum.toString(), devTypeIdx.toString());
                 
                 // Debug
                 // console.log(`DevMan.handleClientMsgBinary debugIdx ${debugMsgIndex} pollDataPos ${pollDataPos} busNum ${busNum} devAddr 0x${devAddr.toString(16)} devTypeIdx ${devTypeIdx} deviceTypeInfo ${JSON.stringify(deviceTypeInfo)}`);
@@ -482,11 +488,21 @@ export class DeviceManager implements RaftDeviceMgrIF{
 
                         const sampleStartPos = pollDataPos;
                         const sampleEndPos = pollDataPos + sampleLen;
+                        // Merge rationale: keep Robotical's explicit sample
+                        // boundary and add upstream diagnostics so malformed
+                        // samples can be skipped with useful context.
                         const newMsgBufIdx = this._attributeHandler.processMsgAttrGroup(rxMsg, sampleStartPos,
                             deviceState.deviceTimeline, pollRespMetadata,
                             deviceState.deviceAttributes,
                             this._maxDatapointsToStore,
-                            sampleEndPos);
+                            sampleEndPos,
+                            {
+                                deviceKey,
+                                deviceType: deviceState.deviceType,
+                                debugMsgIndex,
+                                sampleStartIdx: sampleStartPos,
+                                sampleEndIdx: sampleEndPos,
+                            });
 
                         if (newMsgBufIdx < 0)
                         {
@@ -515,11 +531,21 @@ export class DeviceManager implements RaftDeviceMgrIF{
                         while (pollDataPos + legacySampleLen <= samplesEndPos) {
                             const sampleStartPos = pollDataPos;
                             const sampleEndPos = pollDataPos + legacySampleLen;
+                            // Legacy raw records are not length-prefixed, but
+                            // the fixed sample span gives the same bound and
+                            // diagnostic context to the attribute handler.
                             const newMsgBufIdx = this._attributeHandler.processMsgAttrGroup(rxMsg, sampleStartPos,
                                 deviceState.deviceTimeline, pollRespMetadata,
                                 deviceState.deviceAttributes,
                                 this._maxDatapointsToStore,
-                                sampleEndPos);
+                                sampleEndPos,
+                                {
+                                    deviceKey,
+                                    deviceType: deviceState.deviceType,
+                                    debugMsgIndex,
+                                    sampleStartIdx: sampleStartPos,
+                                    sampleEndIdx: sampleEndPos,
+                                });
 
                             if (newMsgBufIdx < 0)
                             {
@@ -632,8 +658,11 @@ export class DeviceManager implements RaftDeviceMgrIF{
                 // Check if a device state already exists
                 if (!(deviceKey in this._devicesState) || (this._devicesState[deviceKey].deviceTypeInfo === undefined)) {
 
-                    // Get the device type info
-                    const deviceTypeInfo = await this.getDeviceTypeInfo(busName, deviceTypeName);
+                    // Prefer upstream's per-instance deviceid endpoint, but
+                    // keep Robotical's bus/type fallback for simulated and
+                    // older JSON publishers.
+                    const deviceTypeInfo = await this.getDeviceTypeInfo(deviceKey)
+                        ?? await this.getDeviceTypeInfo(busName, deviceTypeName);
 
                     // Check if device record exists
                     if (deviceKey in this._devicesState) {
@@ -802,71 +831,87 @@ export class DeviceManager implements RaftDeviceMgrIF{
     // Get device type info
     ////////////////////////////////////////////////////////////////////////////
 
-    private async getDeviceTypeInfo(busName: string, deviceType: string): Promise<DeviceTypeInfo | undefined> {
+    private async getDeviceTypeInfo(deviceKey: string): Promise<DeviceTypeInfo | undefined>;
+    private async getDeviceTypeInfo(busName: string, deviceType: string): Promise<DeviceTypeInfo | undefined>;
+    private async getDeviceTypeInfo(deviceKeyOrBusName: string, deviceType?: string): Promise<DeviceTypeInfo | undefined> {
+        const cacheKey = deviceType === undefined ? deviceKeyOrBusName : deviceType;
+        const requestLabel = deviceType === undefined ? `deviceKey ${deviceKeyOrBusName}` : `deviceType ${deviceType}`;
+
         // Check if already in cache
-        if (deviceType in this._cachedDeviceTypeRecs) {
-            return this._cachedDeviceTypeRecs[deviceType];
+        if (cacheKey in this._cachedDeviceTypeRecs) {
+            return this._cachedDeviceTypeRecs[cacheKey];
         }
 
-        // Check if there's already a pending request for this device type
-        if (deviceType in this._pendingDeviceTypeRequests) {
-            // console.log(`DevMan.getDeviceTypeInfo joining existing request queue for deviceType ${deviceType}`);
-            
+        // Check if there's already a pending request for this device/type
+        if (cacheKey in this._pendingDeviceTypeRequests) {
             // Add this request to the waiting queue
             return new Promise<DeviceTypeInfo | undefined>((resolve, reject) => {
-                this._pendingDeviceTypeRequests[deviceType].waitingQueue.push({ resolve, reject });
+                this._pendingDeviceTypeRequests[cacheKey].waitingQueue.push({ resolve, reject });
             });
         }
 
         // Check rate limiting for new requests
-        if (deviceType in this._cachedDeviceTypePreviousAttemptTimes) {
-            const timeSinceLastAttempt = Date.now() - this._cachedDeviceTypePreviousAttemptTimes[deviceType];
+        if (cacheKey in this._cachedDeviceTypePreviousAttemptTimes) {
+            const timeSinceLastAttempt = Date.now() - this._cachedDeviceTypePreviousAttemptTimes[cacheKey];
             if (timeSinceLastAttempt < this._minTimeBetweenDeviceTypeInfoRetrievalMs) {
-                console.log(`DevMan.getDeviceTypeInfo rate limited for deviceType ${deviceType}`);
+                console.log(`DevMan.getDeviceTypeInfo rate limited for ${requestLabel}`);
                 return undefined;
             }
         }
 
         // Create and cache the promise with an empty waiting queue
-        const requestPromise = this.executeDeviceTypeInfoRequest(busName, deviceType);
-        this._pendingDeviceTypeRequests[deviceType] = {
+        const requestPromise = this.executeDeviceTypeInfoRequest(deviceKeyOrBusName, deviceType);
+        this._pendingDeviceTypeRequests[cacheKey] = {
             promise: requestPromise,
             waitingQueue: []
         };
 
         try {
             const result = await requestPromise;
-            
+
             // Resolve all waiting requests with the same result
-            const waitingQueue = this._pendingDeviceTypeRequests[deviceType].waitingQueue;
+            const waitingQueue = this._pendingDeviceTypeRequests[cacheKey].waitingQueue;
             waitingQueue.forEach(({ resolve }) => resolve(result));
-            
+
             return result;
         } catch (error) {
             // Reject all waiting requests with the same error
-            const waitingQueue = this._pendingDeviceTypeRequests[deviceType].waitingQueue;
+            const waitingQueue = this._pendingDeviceTypeRequests[cacheKey].waitingQueue;
             waitingQueue.forEach(({ reject }) => reject(error));
-            
-            console.warn(`DevMan.getDeviceTypeInfo failed for ${deviceType}: ${error}`);
+
+            console.warn(`DevMan.getDeviceTypeInfo failed for ${requestLabel}: ${error}`);
             return undefined;
         } finally {
             // Clean up the pending request
-            delete this._pendingDeviceTypeRequests[deviceType];
+            delete this._pendingDeviceTypeRequests[cacheKey];
         }
     }
 
-    private async executeDeviceTypeInfoRequest(busName: string, deviceType: string): Promise<DeviceTypeInfo | undefined> {
-        this._cachedDeviceTypePreviousAttemptTimes[deviceType] = Date.now();
-        
+    private async executeDeviceTypeInfoRequest(deviceKeyOrBusName: string, deviceType?: string): Promise<DeviceTypeInfo | undefined> {
+        const cacheKey = deviceType === undefined ? deviceKeyOrBusName : deviceType;
+        this._cachedDeviceTypePreviousAttemptTimes[cacheKey] = Date.now();
+
         try {
-            const cmd = "devman/typeinfo?bus=" + busName + "&type=" + deviceType;
+            // Merge rationale: support both upstream's per-device endpoint and
+            // Robotical's older bus/type endpoint. The deviceid response may
+            // include instance-specific name/role; the bus/type response keeps
+            // simulators and older firmware working.
+            const cmd = deviceType === undefined
+                ? "devman/typeinfo?deviceid=" + deviceKeyOrBusName
+                : "devman/typeinfo?bus=" + deviceKeyOrBusName + "&type=" + deviceType;
             const msgHandler = this._systemUtils?.getMsgHandler();
-            
+
             if (msgHandler) {
                 const msgRslt = await msgHandler.sendRICRESTURL<RaftDevTypeInfoResponse>(cmd);
                 if (msgRslt && msgRslt.rslt === "ok") {
-                    this._cachedDeviceTypeRecs[deviceType] = msgRslt.devinfo;
-                    return msgRslt.devinfo;
+                    // Merge devinfo (type-level) with top-level per-instance overrides (name, role)
+                    const base: DeviceTypeInfo = msgRslt.devinfo
+                        ? { ...msgRslt.devinfo }
+                        : { name: "", desc: "", manu: "", type: "" };
+                    if (msgRslt.name !== undefined) base.name = msgRslt.name;
+                    if (msgRslt.role !== undefined) base.role = msgRslt.role;
+                    this._cachedDeviceTypeRecs[cacheKey] = base;
+                    return base;
                 }
             }
             return undefined;
