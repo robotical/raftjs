@@ -1009,15 +1009,23 @@ export class DeviceManager implements RaftDeviceMgrIF{
         }
 
         let attrPayloadLen = 0;
+        let usesAbsolutePositions = false;
         for (const attrDef of pollRespMetadata.a) {
             if (!attrDef.t) {
                 return pollRespMetadata.b;
+            }
+            if (attrDef.at !== undefined) {
+                usesAbsolutePositions = true;
             }
             try {
                 attrPayloadLen += structSizeOf(attrDef.t);
             } catch {
                 return pollRespMetadata.b;
             }
+        }
+
+        if (usesAbsolutePositions && pollRespMetadata.b > 0) {
+            return pollRespMetadata.b;
         }
 
         // Cog v1.9.5 light metadata reports the direct-sensor payload size doubled,
